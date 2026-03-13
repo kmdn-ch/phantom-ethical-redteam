@@ -34,7 +34,7 @@ while turn < max_turns:
     try:
         messages = client.think(messages=messages, system_prompt=SYSTEM_PROMPT)
 
-        # Vérification terminaison autonome
+        # Verification terminaison autonome
         assistant_content = next((m['content'] for m in reversed(messages) if m.get('role') == 'assistant'), "")
         if "=== MISSION COMPLETE ===" in assistant_content:
             print("\n🎯 MISSION COMPLETE BY PHANTOM !")
@@ -43,7 +43,7 @@ while turn < max_turns:
 
         turn += 1
 
-        # Pause intelligente toutes les N turns
+        # Intelligent pause each N turns
         if turn % config.get('pause_every_n_turns', 10) == 0:
             print(f"\n⏸️  Pause after {turn} steps (mode autonome).")
             cmd = input("Entrée = continue | 'stop' = stop | 'report' = force report : ").strip().lower()
