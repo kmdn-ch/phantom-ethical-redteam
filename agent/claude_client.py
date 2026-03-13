@@ -38,12 +38,15 @@ class ClaudeClient:
                 # Mapping to real fonctions
                 from tools import nuclei, sqlmap, ffuf, recon, set_phish, cleanup
                 mapping = {
+                    "run_bettercap": bettercap.run,  # from tools import bettercap
+                    "generate_zphisher_template": zphisher.run,
+                    "run_cyberstrike": cyberstrike.run
                     "run_nuclei": nuclei.run,
                     "run_sqlmap": sqlmap.run,
                     "run_ffuf": ffuf.run,
                     "run_recon": recon.run,
                     "generate_phish_template": set_phish.run,
-                    "cleanup_temp": cleanup.run
+                    "cleanup_temp": cleanup.run    
                 }
                 tool_func = mapping.get(tool_name)
 
