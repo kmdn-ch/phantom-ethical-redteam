@@ -1,6 +1,6 @@
-# Phantom – Claude Ethical Red Team (DEF CON Level)
+# Phantom – Claude Ethical Red Team (DEF CON)
 
-**Autonomous Red Team agent powered by Claude 3.5 Sonnet**  
+**Autonomous Red Team agent powered by Claude AI**  
 Uses Nuclei, sqlmap, ffuf, advanced reconnaissance, ethical social engineering templates, etc. 
 
 **Only on authorized scopes.**
@@ -15,12 +15,12 @@ Uses Nuclei, sqlmap, ffuf, advanced reconnaissance, ethical social engineering t
 
 ## Built-in Tools
 
-- Nuclei + sqlmap + ffuf (database)
-- Bettercap (network MITM)
-- Zphisher (30+ phishing templates)
-- CyberStrikeAI (AI orchestrator with 100+ tools – DEF CON level)
+- Nuclei + sqlmap + ffuf (base)
+- Bettercap (MITM réseau)
+- Zphisher (templates phishing 30+)
+- CyberStrikeAI (orchestrator AI 100+ tools – DEF CON level)
 
-Run `./install.sh` once.
+Execute `./install.sh` once.
 
 ## Final launch
 
