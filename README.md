@@ -47,9 +47,8 @@ Uses Nuclei, sqlmap, ffuf, advanced reconnaissance, and social engineering templ
 
 ### Linux
 
-Run the installer — it will guide you through every step interactively:
-
 ```bash
+chmod +x install.sh
 ./install.sh
 ```
 
@@ -72,12 +71,17 @@ Engagement date : 2026-03-15
 ✅ Scope saved to scopes/current_scope.md
 
 [ STEP 3 / 3 ] Installing dependencies...
+→ nuclei and ffuf installed from GitHub Releases
+→ Python virtualenv created in .venv/
 ✅ Installation complete !
 
+  source .venv/bin/activate
   export $(cat .env)
-  export PATH=$PATH:$(pwd)/bin
-  python agent/main.py
+  export PATH=$PATH:$(pwd)/bin:/usr/local/bin
+  python3 agent/main.py
 ```
+
+> **Note :** `chmod +x install.sh` is required once after cloning — the installer uses LF line endings and is safe to run on any Debian/Ubuntu system.
 
 ### Windows (PowerShell)
 
@@ -88,7 +92,7 @@ Engagement date : 2026-03-15
 Same interactive flow (provider → API key → scope → dependencies).
 Windows limitations: `bettercap` and `zphisher` require WSL2.
 
-The installer handles everything: provider selection, API key validation, scope enforcement, Python packages, and external tools.
+The installer handles everything: provider selection, API key validation, scope enforcement, Python virtualenv, and external tools (nuclei/ffuf binaries downloaded automatically).
 
 ---
 
@@ -106,7 +110,9 @@ Run `./install.sh` and follow the prompts (API key + target URL). Done — no ma
 ### Step 2 — Launch Phantom
 
 ```bash
-python agent/main.py
+source .venv/bin/activate
+export $(cat .env)
+python3 agent/main.py
 ```
 
 ```
@@ -217,7 +223,7 @@ All findings are in `logs/` — ready to import into your report.
 `config.yaml`:
 
 ```yaml
-provider: "anthropic"   # anthropic | openai | grok | gemini | ollama | mistral
+provider: "anthropic"   # anthropic | openai | grok | gemini | ollama | mistral | deepseek
 model: ""               # leave empty for provider default
 autonomous: true
 max_autonomous_turns: 50
@@ -228,9 +234,10 @@ The installer writes the API key to `.env` and sets the provider in `config.yaml
 
 ```bash
 # Linux
+source .venv/bin/activate
 export $(cat .env)
-export PATH=$PATH:$(pwd)/bin
-python agent/main.py
+export PATH=$PATH:$(pwd)/bin:/usr/local/bin
+python3 agent/main.py
 
 # Windows (PowerShell)
 foreach ($line in Get-Content .env) { [System.Environment]::SetEnvironmentVariable($line.Split("=")[0], $line.Split("=",2)[1]) }
