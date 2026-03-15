@@ -4,15 +4,23 @@ from .base import BaseLLMProvider
 
 
 class OpenAIProvider(BaseLLMProvider):
-    """Handles OpenAI (ChatGPT) and xAI (Grok) — both use the OpenAI-compatible API."""
+    """Handles OpenAI (ChatGPT), xAI (Grok), and DeepSeek — all OpenAI-compatible APIs."""
 
-    OPENAI_DEFAULT = "gpt-4o"
-    GROK_DEFAULT = "grok-2-latest"
-    GROK_BASE_URL = "https://api.x.ai/v1"
+    OPENAI_DEFAULT  = "gpt-5.4"
+    GROK_DEFAULT    = "grok-4-20-beta"
+    DEEPSEEK_DEFAULT = "deepseek-chat-v3.2"
+    GROK_BASE_URL     = "https://api.x.ai/v1"
+    DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
     def __init__(self, api_key: str, model: str = None, base_url: str = None):
         self.client = OpenAI(api_key=api_key, base_url=base_url)
-        self.model = model or (self.GROK_DEFAULT if base_url else self.OPENAI_DEFAULT)
+        if base_url == self.GROK_BASE_URL:
+            default = self.GROK_DEFAULT
+        elif base_url == self.DEEPSEEK_BASE_URL:
+            default = self.DEEPSEEK_DEFAULT
+        else:
+            default = self.OPENAI_DEFAULT
+        self.model = model or default
 
     def convert_tools(self, tools: list) -> list:
         return [

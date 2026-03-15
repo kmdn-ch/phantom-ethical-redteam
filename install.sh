@@ -12,24 +12,26 @@ echo ""
 # ─────────────────────────────────────────
 echo "[ STEP 0 / 3 ] LLM Provider"
 echo "-----------------------------------------"
-echo "  1) Anthropic  (Claude)    — https://console.anthropic.com"
-echo "  2) OpenAI     (ChatGPT)   — https://platform.openai.com"
-echo "  3) xAI        (Grok)      — https://console.x.ai"
-echo "  4) Google     (Gemini)    — https://aistudio.google.com/apikey"
-echo "  5) Mistral    (MistralAI) — https://console.mistral.ai"
-echo "  6) Ollama     (local)     — no API key needed"
+echo "  1) Anthropic  (Claude sonnet-4-6)   — https://console.anthropic.com"
+echo "  2) OpenAI     (ChatGPT 5.4)        — https://platform.openai.com"
+echo "  3) xAI        (Grok 4.20 Beta)     — https://console.x.ai"
+echo "  4) Google     (Gemini 3)           — https://aistudio.google.com/apikey"
+echo "  5) Mistral    (mistral-large)      — https://console.mistral.ai"
+echo "  6) DeepSeek   (DeepSeek 3.2)       — https://platform.deepseek.com"
+echo "  7) Ollama     (local — deepseek-r1:3.2 default)"
 echo ""
 
 while true; do
-    read -rp "Choose provider [1-6] : " provider_choice
+    read -rp "Choose provider [1-7] : " provider_choice
     case "$provider_choice" in
         1) PROVIDER="anthropic"; ENV_VAR="ANTHROPIC_API_KEY"; KEY_PREFIX="sk-ant-" ;;
         2) PROVIDER="openai";    ENV_VAR="OPENAI_API_KEY";    KEY_PREFIX="sk-" ;;
         3) PROVIDER="grok";      ENV_VAR="XAI_API_KEY";       KEY_PREFIX="xai-" ;;
         4) PROVIDER="gemini";    ENV_VAR="GEMINI_API_KEY";    KEY_PREFIX="" ;;
         5) PROVIDER="mistral";   ENV_VAR="MISTRAL_API_KEY";   KEY_PREFIX="" ;;
-        6) PROVIDER="ollama";    ENV_VAR="";                  KEY_PREFIX="" ;;
-        *) echo "⚠️  Invalid choice. Enter a number between 1 and 6." ; continue ;;
+        6) PROVIDER="deepseek";  ENV_VAR="DEEPSEEK_API_KEY";  KEY_PREFIX="" ;;
+        7) PROVIDER="ollama";    ENV_VAR="";                  KEY_PREFIX="" ;;
+        *) echo "⚠️  Invalid choice. Enter a number between 1 and 7." ; continue ;;
     esac
     break
 done

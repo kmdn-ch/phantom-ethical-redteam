@@ -21,12 +21,13 @@ Write-Host ""
 # ─────────────────────────────────────────
 Write-Host "[ STEP 0 / 3 ] LLM Provider" -ForegroundColor Yellow
 Write-Host "-----------------------------------------"
-Write-Host "  1) Anthropic  (Claude)    — https://console.anthropic.com"
-Write-Host "  2) OpenAI     (ChatGPT)   — https://platform.openai.com"
-Write-Host "  3) xAI        (Grok)      — https://console.x.ai"
-Write-Host "  4) Google     (Gemini)    — https://aistudio.google.com/apikey"
-Write-Host "  5) Mistral    (MistralAI) — https://console.mistral.ai"
-Write-Host "  6) Ollama     (local)     — no API key needed"
+Write-Host "  1) Anthropic  (Claude sonnet-4-6)   — https://console.anthropic.com"
+Write-Host "  2) OpenAI     (ChatGPT 5.4)        — https://platform.openai.com"
+Write-Host "  3) xAI        (Grok 4.20 Beta)     — https://console.x.ai"
+Write-Host "  4) Google     (Gemini 3)           — https://aistudio.google.com/apikey"
+Write-Host "  5) Mistral    (mistral-large)      — https://console.mistral.ai"
+Write-Host "  6) DeepSeek   (DeepSeek 3.2)       — https://platform.deepseek.com"
+Write-Host "  7) Ollama     (local — deepseek-r1:3.2 default)"
 Write-Host ""
 
 $providerMap = @{
@@ -35,11 +36,12 @@ $providerMap = @{
     "3" = @{ Name = "grok";      EnvVar = "XAI_API_KEY";       Prefix = "xai-" }
     "4" = @{ Name = "gemini";    EnvVar = "GEMINI_API_KEY";    Prefix = "" }
     "5" = @{ Name = "mistral";   EnvVar = "MISTRAL_API_KEY";   Prefix = "" }
-    "6" = @{ Name = "ollama";    EnvVar = "";                  Prefix = "" }
+    "6" = @{ Name = "deepseek";  EnvVar = "DEEPSEEK_API_KEY";  Prefix = "" }
+    "7" = @{ Name = "ollama";    EnvVar = "";                  Prefix = "" }
 }
 
 do {
-    $choice = Read-Host "Choose provider [1-6]"
+    $choice = Read-Host "Choose provider [1-7]"
 } while (-not $providerMap.ContainsKey($choice))
 
 $provider   = $providerMap[$choice].Name

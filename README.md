@@ -19,14 +19,15 @@ Uses Nuclei, sqlmap, ffuf, advanced reconnaissance, and social engineering templ
 
 ## Supported LLM Providers
 
-| Provider | Models | API key env var |
+| Provider | Default model (2026-03-15) | API key env var |
 |---|---|---|
-| Anthropic (Claude) | claude-sonnet-4-6, claude-opus-4-6 | `ANTHROPIC_API_KEY` |
-| OpenAI (ChatGPT) | gpt-4o, gpt-4-turbo | `OPENAI_API_KEY` |
-| xAI (Grok) | grok-2-latest | `XAI_API_KEY` |
-| Google (Gemini) | gemini-1.5-pro, gemini-2.0-flash | `GEMINI_API_KEY` |
-| Mistral | mistral-large-latest | `MISTRAL_API_KEY` |
-| Ollama (local) | llama3.1, mistral, qwen2.5… | *(none)* |
+| Anthropic (Claude) | `claude-sonnet-4-6` | `ANTHROPIC_API_KEY` |
+| OpenAI (ChatGPT) | `gpt-5.4` | `OPENAI_API_KEY` |
+| xAI (Grok) | `grok-4-20-beta` | `XAI_API_KEY` |
+| Google (Gemini) | `gemini-3.0-pro` | `GEMINI_API_KEY` |
+| Mistral | `mistral-large-latest` | `MISTRAL_API_KEY` |
+| DeepSeek | `deepseek-chat-v3.2` | `DEEPSEEK_API_KEY` |
+| Ollama (local) | `deepseek-r1:3.2` | *(none)* |
 
 ## Built-in Tools
 
@@ -54,9 +55,10 @@ Run the installer — it will guide you through every step interactively:
 
 ```
 [ STEP 0 / 3 ] LLM Provider
-  1) Anthropic (Claude)   2) OpenAI (ChatGPT)   3) xAI (Grok)
-  4) Google (Gemini)      5) Mistral             6) Ollama (local)
-Choose provider [1-6] : 1
+  1) Anthropic (Claude sonnet-4-6)   2) OpenAI (ChatGPT 5.4)    3) xAI (Grok 4.20 Beta)
+  4) Google (Gemini 3)               5) Mistral                  6) DeepSeek 3.2
+  7) Ollama (local — deepseek-r1:3.2)
+Choose provider [1-7] : 1
 ✅ Provider selected : ANTHROPIC
 
 [ STEP 1 / 3 ] API Key
