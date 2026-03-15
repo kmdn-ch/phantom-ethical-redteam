@@ -254,18 +254,18 @@ echo "✅ Python dependencies installed in .venv"
 echo ""
 echo "========================================"
 echo "  ✅ Installation complete !"
-echo "========================================"
-echo ""
 echo "  Provider : $PROVIDER"
 echo "  Scope    : $scope_url"
-echo ""
-echo "  To start Phantom :"
-echo ""
-echo "    source .venv/bin/activate"
-if [ "$PROVIDER" != "ollama" ]; then
-    echo "    export \$(cat .env)"
-fi
-echo "    export PATH=\$PATH:\$(pwd)/bin:/usr/local/bin"
-echo "    python3 agent/main.py"
-echo ""
 echo "========================================"
+echo ""
+echo "  Launching Phantom now..."
+echo ""
+
+# Activate venv and load env
+source .venv/bin/activate
+if [ "$PROVIDER" != "ollama" ]; then
+    export $(cat .env)
+fi
+export PATH="$PATH:$(pwd)/bin:/usr/local/bin"
+
+exec python3 agent/main.py

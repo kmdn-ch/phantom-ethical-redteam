@@ -265,18 +265,22 @@ Write-Host "   • zphisher   : bash script — use WSL2 for phishing templates"
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  ✅ Installation complete !"            -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
 Write-Host "  Provider : $($provider.ToUpper())"
 Write-Host "  Scope    : $scopeUrl"
-Write-Host ""
-Write-Host "  To start Phantom :"
-Write-Host ""
-if ($provider -ne "ollama") {
-    Write-Host '  # Load API key'
-    Write-Host '  foreach ($line in Get-Content .env) { [System.Environment]::SetEnvironmentVariable($line.Split("=")[0], $line.Split("=",2)[1]) }'
-}
-Write-Host '  $env:PATH += ";$PWD\bin"'
-Write-Host "  python agent\main.py"
-Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "  Launching Phantom now..." -ForegroundColor Cyan
+Write-Host ""
+
+# Load API key into current session
+if ($provider -ne "ollama") {
+    foreach ($line in Get-Content ".env") {
+        if ($line -match "=") {
+            $k, $v = $line -split "=", 2
+            [System.Environment]::SetEnvironmentVariable($k.Trim(), $v.Trim(), "Process")
+        }
+    }
+}
+$env:PATH += ";$PWD\bin"
+
+& python "agent\main.py"
