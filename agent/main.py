@@ -8,6 +8,12 @@ from pathlib import Path
 # Ensure agent/ is on sys.path
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Force UTF-8 output on Windows (emoji support in tool results)
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
+if sys.stderr.encoding and sys.stderr.encoding.lower() != "utf-8":
+    sys.stderr.reconfigure(encoding="utf-8")
+
 from agent_client import AgentClient
 from providers import PROVIDERS
 
