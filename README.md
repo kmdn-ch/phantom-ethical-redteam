@@ -114,8 +114,11 @@ Authorization note : Pentest contract signed 2026-03-15
 ### Windows (PowerShell)
 
 ```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
 .\install.ps1
 ```
+
+> The installer sets the execution policy automatically if needed. Running `Set-ExecutionPolicy` beforehand avoids any prompt.
 
 Same interactive flow (provider -> API key -> scope -> dependencies).
 Windows limitations: `bettercap` and `zphisher` require WSL2.

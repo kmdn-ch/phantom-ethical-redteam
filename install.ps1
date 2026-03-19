@@ -9,6 +9,19 @@
 
 $ErrorActionPreference = "Stop"
 
+# ─────────────────────────────────────────
+# Activation de l'exécution des scripts PowerShell
+# ─────────────────────────────────────────
+$currentPolicy = Get-ExecutionPolicy -Scope CurrentUser
+if ($currentPolicy -notin @("Unrestricted", "Bypass", "RemoteSigned")) {
+    Write-Host ""
+    Write-Host "  [!] Execution policy actuelle : $currentPolicy" -ForegroundColor Yellow
+    Write-Host "  [!] L'execution des scripts PowerShell doit etre activee." -ForegroundColor Yellow
+    Write-Host ""
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+    Write-Host "  Execution policy definie a RemoteSigned pour l'utilisateur courant." -ForegroundColor Green
+}
+
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Phantom - Ethical RedTeam"              -ForegroundColor Cyan
