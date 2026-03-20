@@ -1,8 +1,22 @@
+# Secrets & local config
 .env
 *.env
+config.yaml
+scopes/current_scope.md
+
+# Runtime
 logs/
 __pycache__/
 *.pyc
+.pytest_cache/
 .mypy_cache/
 .ruff_cache/
 bin/
+tools/sqlmap_repo/
+tools/cyberstrike_repo/
+wordlists/
+
+# IDE & tooling
+.claude/
+.vscode/
+.idea/

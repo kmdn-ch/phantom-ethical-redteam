@@ -178,6 +178,15 @@ fi
 echo "[ STEP 1 / 3 ] API Key"
 echo "-----------------------------------------"
 
+# Create config.yaml from template if missing
+if [ ! -f "config.yaml" ]; then
+    if [ -f "config.yaml.example" ]; then
+        cp config.yaml.example config.yaml
+    else
+        echo "❌ config.yaml.example not found"; exit 1
+    fi
+fi
+
 OLLAMA_HOST="http://localhost:11434"
 
 if [ "$PROVIDER" = "ollama" ] && [ "$OLLAMA_DETECTED" = true ]; then

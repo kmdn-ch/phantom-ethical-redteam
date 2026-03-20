@@ -269,6 +269,15 @@ if ($provider -eq "ollama" -and $ollamaDetected) {
 }
 Write-Host ""
 
+# Create config.yaml from template if missing
+if (-not (Test-Path "config.yaml")) {
+    if (Test-Path "config.yaml.example") {
+        Copy-Item "config.yaml.example" "config.yaml"
+    } else {
+        Write-Host "[!] config.yaml.example not found" -ForegroundColor Red; exit 1
+    }
+}
+
 # Update config.yaml provider field (UTF-8 without BOM -- BOM breaks YAML parser)
 $configContent = Get-Content "config.yaml" -Raw
 $configContent = $configContent -replace '(?m)^provider:.*', "provider: `"$provider`""

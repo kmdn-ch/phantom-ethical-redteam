@@ -300,7 +300,16 @@ Reports saved in `logs/<session>/` as Markdown, HTML, and optional PDF.
 
 ## Configuration
 
-`config.yaml`:
+Configuration files are **not tracked by git** — the installer creates them from templates.
+
+| Template file | Created as | Purpose |
+|---|---|---|
+| `config.yaml.example` | `config.yaml` | LLM provider, model, timeouts, performance |
+| `scopes/current_scope.md.example` | `scopes/current_scope.md` | Authorized targets for the mission |
+
+If `config.yaml` is missing, both the installer and `agent/main.py` will copy it from the template automatically.
+
+### `config.yaml`
 
 ```yaml
 provider: "anthropic"        # anthropic | openai | grok | gemini | ollama | mistral | deepseek
@@ -367,9 +376,10 @@ Phantom/
 │   ├── templates/
 │   └── static/
 ├── tests/                      # 44 unit tests
-├── config.yaml
+├── config.yaml.example          # Template (copied to config.yaml by installer)
 ├── prompts/system_prompt.txt
-├── scopes/current_scope.md
+├── scopes/
+│   └── current_scope.md.example  # Template (copied to current_scope.md by installer)
 ├── install.sh / install.ps1
 └── requirements.txt
 ```

@@ -103,7 +103,18 @@ root_logger.addHandler(console_handler)
 logger = logging.getLogger(__name__)
 
 # --- Config ---
-with open(ROOT / "config.yaml") as f:
+config_path = ROOT / "config.yaml"
+if not config_path.exists():
+    template = ROOT / "config.yaml.example"
+    if template.exists():
+        import shutil
+        shutil.copy(template, config_path)
+        print("  config.yaml created from template. Run install.ps1 to configure.")
+    else:
+        print("config.yaml not found. Run install.ps1 or install.sh first.")
+        sys.exit(1)
+
+with open(config_path) as f:
     config = yaml.safe_load(f)
 
 with open(ROOT / "prompts" / "system_prompt.txt") as f:
