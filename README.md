@@ -13,14 +13,21 @@ Uses Nmap, Nuclei, sqlmap, ffuf, WhatWeb, advanced reconnaissance, screenshots, 
 
 - Autonomous agent with step-by-step reasoning + auto-correction
 - **20 built-in tools** with native tool-calling on any supported LLM
+- **Adaptive intelligence** — attack strategy adapts based on detected technology stack (WordPress, Java, Node.js, API, etc.)
+- **Attack chain correlation** — findings grouped by exploitation path, not isolated items
+- **Stall detection** — agent auto-pivots when scans produce no new findings
 - **Parallel tool execution** — multiple tools run concurrently
-- **Mission resume** — interrupted missions can be resumed from saved state
+- **Mission resume** — interrupted missions can be resumed from saved state (atomic state save)
 - **Web dashboard** — live charts (Chart.js), structured tables, mission summary, session replay (port 5000)
+- **Dashboard authentication** — optional API key via `PHANTOM_DASHBOARD_KEY` env var
 - **Multi-target scope** with CIDR support and strict enforcement
+- **Retry + timeout** — all LLM providers have 120s timeout and 3 retries with exponential backoff
+- **Secret redaction** — API keys, tokens, passwords automatically stripped from logs
 - Full structured logging (console + file) + automatic cleanup
 - Pause every N turns — human can stop, continue, or force a report
 - **Mission diff** — compare findings between sessions (new/resolved/persistent)
 - **CVSS scoring** — aggregate risk score from vulnerability findings
+- **Edge case handling** — WAF detection, rate limiting, honeypot detection, target down
 - Social engineering limited to educational templates (no actual send)
 
 ## Supported LLM Providers

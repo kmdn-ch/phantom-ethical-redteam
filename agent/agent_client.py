@@ -2,12 +2,18 @@
 
 import json
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from tools import ALL_TOOLS, get_tool_mapping
 from providers import get_provider
 
 logger = logging.getLogger(__name__)
+
+# Severity keywords for finding detection
+_SEVERITY_RE = re.compile(
+    r"\[(CRITICAL|HIGH|MEDIUM|LOW|INFO)\]", re.IGNORECASE
+)
 
 
 class AgentClient:
@@ -19,6 +25,10 @@ class AgentClient:
         self.mapping = get_tool_mapping()
         self.max_parallel = config.get("max_parallel_tools", 4)
         self.compact_after = config.get("context_compact_after", 5)
+        # Stall detection
+        self._stall_count = 0
+        self._stall_threshold = config.get("stall_threshold", 3)
+        self._total_findings = 0
 
     def _compact_old_tool_results(self, messages: list, keep_last_n: int = 3) -> list:
         """Truncate content of old tool_result blocks to avoid context overflow."""
@@ -108,18 +118,43 @@ class AgentClient:
                     }
         return results
 
+    def _estimate_tokens(self, messages: list) -> int:
+        """Rough token estimate (1 token ~ 4 chars)."""
+        total = 0
+        for msg in messages:
+            content = msg.get("content", "")
+            if isinstance(content, list):
+                for block in content:
+                    total += len(str(block.get("content", "") or block.get("text", "")))
+            else:
+                total += len(str(content))
+        return total // 4
+
+    def _count_findings_in_text(self, text: str) -> int:
+        """Count severity-tagged findings in agent text."""
+        return len(_SEVERITY_RE.findall(text))
+
     def think(self, messages: list, system_prompt: str) -> list:
-        messages = self._compact_old_tool_results(messages)
+        # Proactive context compaction based on estimated size
+        estimated_tokens = self._estimate_tokens(messages) + len(system_prompt) // 4
+        if estimated_tokens > 50000:
+            logger.info("Context large (~%dk tokens), aggressive compaction", estimated_tokens // 1000)
+            messages = self._compact_old_tool_results(messages, keep_last_n=2)
+        else:
+            messages = self._compact_old_tool_results(messages)
+
         text_blocks, tool_calls = self.provider.call_with_retry(messages, system_prompt, self.tools)
 
         new_messages = messages.copy()
 
-        # Build assistant message
+        # Build assistant message + count findings for stall detection
         assistant_blocks = []
+        turn_findings = 0
         for text in text_blocks:
             print("Phantom:", text)
             logger.info("Reasoning: %s", text[:300])
             assistant_blocks.append({"type": "text", "text": text})
+            turn_findings += self._count_findings_in_text(text)
 
         for tc in tool_calls:
             assistant_blocks.append({
@@ -138,8 +173,32 @@ class AgentClient:
                        len(tool_calls), [tc["name"] for tc in tool_calls])
             tool_results = self._execute_tools_parallel(tool_calls)
 
+            # Count findings in tool results
+            for tr in tool_results:
+                turn_findings += self._count_findings_in_text(str(tr.get("content", "")))
+
             if tool_results:
                 new_messages.append({"role": "user", "content": tool_results})
+
+        # Stall detection: inject guidance if no new findings for N consecutive turns
+        if turn_findings > 0:
+            self._stall_count = 0
+            self._total_findings += turn_findings
+        else:
+            self._stall_count += 1
+
+        if self._stall_count >= self._stall_threshold:
+            stall_msg = (
+                f"[SYSTEM] Stall detected: {self._stall_count} consecutive turns with no new findings. "
+                f"Total findings so far: {self._total_findings}. "
+                "Options: (1) Pivot to untested attack vectors or techniques. "
+                "(2) Try different tool parameters or scan modes. "
+                "(3) If all vectors exhausted, proceed to reporting phase. "
+                "Do NOT repeat the same scans. Adapt or complete the mission."
+            )
+            logger.warning("Stall detected: %d turns without findings", self._stall_count)
+            new_messages.append({"role": "user", "content": stall_msg})
+            self._stall_count = 0  # Reset after injection
 
         return new_messages
 

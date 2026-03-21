@@ -48,3 +48,6 @@ retry_backoff: 2
 
 # Context compaction -- tool results older than this many turns are truncated
 context_compact_after: 5
+
+# Stall detection -- inject pivot guidance after N turns with no new findings
+stall_threshold: 3
