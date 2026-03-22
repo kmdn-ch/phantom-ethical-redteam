@@ -137,14 +137,14 @@ if not config_path.exists():
         print("config.yaml not found. Run install.ps1 or install.sh first.")
         sys.exit(1)
 
-with open(config_path) as f:
+with open(config_path, encoding="utf-8") as f:
     config = yaml.safe_load(f)
 
-with open(ROOT / "prompts" / "system_prompt.txt") as f:
+with open(ROOT / "prompts" / "system_prompt.txt", encoding="utf-8") as f:
     SYSTEM_PROMPT = f.read()
 
 scope_path = ROOT / config.get("scope_file", "scopes/current_scope.md")
-SCOPE = scope_path.read_text() if scope_path.exists() else ""
+SCOPE = scope_path.read_text(encoding="utf-8") if scope_path.exists() else ""
 
 if not SCOPE.strip() or "https://xxx" in SCOPE:
     print("Invalid scope or placeholder detected. Fill in scopes/current_scope.md with an authorized target.")
