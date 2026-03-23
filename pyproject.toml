@@ -1,6 +1,6 @@
 [project]
 name = "phantom-ethical-redteam"
-version = "2.5.5"
+version = "2.6.1"
 description = "Autonomous ethical red team agent with multi-LLM support"
 requires-python = ">=3.11"
 

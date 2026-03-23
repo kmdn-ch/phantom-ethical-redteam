@@ -11,7 +11,7 @@ import webbrowser
 import socket
 from pathlib import Path
 
-VERSION = "2.5.5"
+VERSION = "2.6.1"
 
 # Ensure agent/ is on sys.path
 sys.path.insert(0, str(Path(__file__).parent))
