@@ -70,10 +70,11 @@ def run(url: str, full_page: bool = False) -> str:
         pass
 
     return (
-        "No screenshot tool available. Install one of:\n"
+        "[TOOL OK, BINARY MISSING] take_screenshot tool is available but no screenshot backend is installed. Install one of:\n"
         "  pip install playwright && playwright install chromium\n"
         "  apt install wkhtmltopdf  (includes wkhtmltoimage)\n"
-        "  apt install chromium-browser"
+        "  apt install chromium-browser\n"
+        "The take_screenshot tool will work once any backend is installed."
     )
 
 

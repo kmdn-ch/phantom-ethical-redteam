@@ -11,7 +11,7 @@ import webbrowser
 import socket
 from pathlib import Path
 
-VERSION = "2.6.1"
+VERSION = "2.7.0"
 
 # Ensure agent/ is on sys.path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -124,6 +124,14 @@ root_logger = logging.getLogger()
 root_logger.setLevel(logging.DEBUG)
 root_logger.addHandler(file_handler)
 root_logger.addHandler(console_handler)
+
+# Suppress urllib3 InsecureRequestWarning spam (verify=False in tools)
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Silence noisy HTTP client loggers in console (still logged to file at DEBUG level)
+for noisy_logger in ["httpx", "httpcore", "urllib3", "httpcore.http11", "httpcore.connection"]:
+    logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 

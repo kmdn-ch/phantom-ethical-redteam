@@ -62,7 +62,7 @@ def run(target: str, ports: str = "-", scan_type: str = "service", timeout: int 
     except subprocess.TimeoutExpired:
         return f"Nmap timed out after {timeout}s. Try 'quick' scan_type or narrower port range."
     except FileNotFoundError:
-        return "Nmap not found. Install with: apt install nmap (Linux) or download from nmap.org"
+        return "[TOOL OK, BINARY MISSING] Nmap CLI is not installed on this system. Install with: apt install nmap (Linux) or download from nmap.org. This does NOT mean the run_nmap tool is unavailable — it just needs the nmap binary."
     except Exception as e:
         logger.error("Nmap error: %s", e)
         return f"Nmap error: {str(e)}"

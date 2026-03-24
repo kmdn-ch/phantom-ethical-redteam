@@ -39,7 +39,8 @@ def get_provider(config: dict) -> BaseLLMProvider:
     if name == "ollama":
         from .ollama_provider import OllamaProvider
         host = config.get("ollama_host", "http://localhost:11434")
-        return OllamaProvider(model=model or "deepseek-v3.2:cloud", host=host)
+        timeout = config.get("ollama_timeout")
+        return OllamaProvider(model=model or "deepseek-v3.2:cloud", host=host, timeout=timeout)
 
     if name == "mistral":
         from .mistral_provider import MistralProvider

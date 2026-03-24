@@ -74,7 +74,7 @@ def run(url: str, wordlist: str = "") -> str:
             return f"ffuf done \u2013 results saved to {output_path}"
 
     except FileNotFoundError:
-        return "ffuf not found. Run the installer or download from github.com/ffuf/ffuf"
+        return "[TOOL OK, BINARY MISSING] ffuf CLI is not installed on this system. Run the installer or download from github.com/ffuf/ffuf. This does NOT mean the run_ffuf tool is unavailable — it just needs the ffuf binary."
     except Exception as e:
         logger.error("ffuf error: %s", e)
         return f"ffuf error: {str(e)}"

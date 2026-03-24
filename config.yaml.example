@@ -36,6 +36,9 @@ interactive: true
 sqlmap_timeout: 300
 nmap_timeout: 300
 
+# Ollama LLM timeout (seconds) — local models may need more time
+ollama_timeout: 300
+
 # Parallel tool execution
 max_parallel_tools: 4
 

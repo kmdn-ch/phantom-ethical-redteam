@@ -42,8 +42,8 @@ class BaseLLMProvider(ABC):
                 if attempt < self.MAX_RETRIES - 1:
                     wait = self.RETRY_BACKOFF ** attempt
                     logger.warning(
-                        "LLM API call failed (attempt %d/%d): %s — retrying in %.0fs",
-                        attempt + 1, self.MAX_RETRIES, e, wait,
+                        "LLM API call failed (attempt %d/%d): %s — retrying in %.0fs (timeout was %ds)",
+                        attempt + 1, self.MAX_RETRIES, e, wait, self.TIMEOUT,
                     )
                     time.sleep(wait)
                 else:

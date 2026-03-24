@@ -31,8 +31,9 @@ class AgentClient:
         self.compact_after = config.get("context_compact_after", 5)
         # Stall detection
         self._stall_count = 0
-        self._stall_threshold = config.get("stall_threshold", 3)
+        self._stall_threshold = config.get("stall_threshold", 5)
         self._total_findings = 0
+        self._turn_count = 0
 
     def _compact_old_tool_results(self, messages: list[dict], keep_last_n: int = 3) -> list[dict]:
         """Truncate content of old tool_result blocks to avoid context overflow."""
@@ -139,6 +140,7 @@ class AgentClient:
         return len(_SEVERITY_RE.findall(text))
 
     def think(self, messages: list[dict], system_prompt: str) -> list[dict]:
+        self._turn_count += 1
         # Proactive context compaction based on estimated size
         estimated_tokens = self._estimate_tokens(messages) + len(system_prompt) // 4
         if estimated_tokens > 50000:
@@ -155,7 +157,9 @@ class AgentClient:
         assistant_blocks = []
         turn_findings = 0
         for text in text_blocks:
-            print("Phantom:", text)
+            print(f"\n{'─' * 60}")
+            print(f"Phantom: {text}")
+            print(f"{'─' * 60}")
             logger.info("Reasoning: %s", text[:300])
             assistant_blocks.append({"type": "text", "text": text})
             turn_findings += self._count_findings_in_text(text)
@@ -175,11 +179,21 @@ class AgentClient:
         if tool_calls:
             logger.info("Executing %d tool(s): %s",
                        len(tool_calls), [tc["name"] for tc in tool_calls])
+            tool_names = [tc["name"] for tc in tool_calls]
+            print(f"  >> Running: {', '.join(tool_names)}")
             tool_results = self._execute_tools_parallel(tool_calls)
 
             # Count findings in tool results
             for tr in tool_results:
                 turn_findings += self._count_findings_in_text(str(tr.get("content", "")))
+
+            # Also count non-empty tool results as partial progress (reduces stall sensitivity)
+            non_empty_results = sum(
+                1 for tr in tool_results
+                if len(str(tr.get("content", ""))) > 50
+            )
+            if non_empty_results > 0 and turn_findings == 0:
+                self._stall_count = max(0, self._stall_count - 1)
 
             if tool_results:
                 new_messages.append({"role": "user", "content": tool_results})
@@ -191,16 +205,20 @@ class AgentClient:
         else:
             self._stall_count += 1
 
-        if self._stall_count >= self._stall_threshold:
+        if self._stall_count >= self._stall_threshold and self._turn_count > 5:
             stall_msg = (
-                f"[SYSTEM] Stall detected: {self._stall_count} consecutive turns with no new findings. "
+                f"[SYSTEM] No new severity-tagged findings for {self._stall_count} consecutive turns. "
                 f"Total findings so far: {self._total_findings}. "
-                "Options: (1) Pivot to untested attack vectors or techniques. "
-                "(2) Try different tool parameters or scan modes. "
-                "(3) If all vectors exhausted, proceed to reporting phase. "
-                "Do NOT repeat the same scans. Adapt or complete the mission."
+                "This is normal during early recon phases. "
+                "If you are still in recon/fingerprinting phase, continue normally. "
+                "If scanning phase is complete with no findings: "
+                "(1) Try different tool parameters or scan modes. "
+                "(2) Pivot to untested attack vectors. "
+                "(3) If all vectors exhausted, proceed to reporting. "
+                "Do NOT repeat the same scans."
             )
             logger.warning("Stall detected: %d turns without findings", self._stall_count)
+            print(f"\n  ⚠ Stall detected — {self._stall_count} turns with no new findings. Injecting pivot guidance.")
             new_messages.append({"role": "user", "content": stall_msg})
             self._stall_count = 0  # Reset after injection
 
