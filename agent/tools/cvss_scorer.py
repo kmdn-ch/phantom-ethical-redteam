@@ -84,13 +84,53 @@ def run(findings: list | None = None, **kwargs) -> str:
     else:
         label = "Informational"
 
-    lines = [
-        f"Risk Score: {score}/10 ({label})",
-        f"Total findings: {total}",
-        f"  Critical: {breakdown['critical']}",
-        f"  High: {breakdown['high']}",
-        f"  Medium: {breakdown['medium']}",
-        f"  Low: {breakdown['low']}",
-        f"  Info: {breakdown['info']}",
+    # Build ASCII table
+    rows = [
+        ("Critical", breakdown["critical"]),
+        ("High", breakdown["high"]),
+        ("Medium", breakdown["medium"]),
+        ("Low", breakdown["low"]),
+        ("Info", breakdown["info"]),
     ]
+
+    lines = [
+        "=== RISK ASSESSMENT ===",
+        "",
+        f"  Overall Score: {score}/10 ({label.upper()})",
+        "",
+        "  +----------+-------+",
+        "  | Severity | Count |",
+        "  +----------+-------+",
+    ]
+    for sev_name, count in rows:
+        lines.append(f"  | {sev_name:<8s} | {count:>5d} |")
+    lines.append("  +----------+-------+")
+    lines.append(f"  Total: {total} findings")
+
+    # Top risk factors analysis
+    risk_factors = []
+    if breakdown["critical"] > 0:
+        risk_factors.append(
+            f"{breakdown['critical']} Critical finding{'s' if breakdown['critical'] > 1 else ''} "
+            f"dominate{'s' if breakdown['critical'] == 1 else ''} the score"
+        )
+    if breakdown["high"] > 0:
+        risk_factors.append(
+            f"{breakdown['high']} High-severity finding{'s' if breakdown['high'] > 1 else ''} "
+            f"contribute significantly"
+        )
+    high_weight = breakdown["critical"] + breakdown["high"]
+    low_weight = breakdown["medium"] + breakdown["low"] + breakdown["info"]
+    if high_weight > 0 and low_weight > high_weight:
+        risk_factors.append("Weighted average skewed by high-severity items despite more low-severity findings")
+    elif high_weight > low_weight and low_weight > 0:
+        risk_factors.append("High-severity findings outnumber lower-severity ones")
+    if not risk_factors:
+        risk_factors.append("All findings are low severity or informational")
+
+    lines.append("")
+    lines.append("  Top risk factors:")
+    for factor in risk_factors:
+        lines.append(f"    - {factor}")
+
     return "\n".join(lines)

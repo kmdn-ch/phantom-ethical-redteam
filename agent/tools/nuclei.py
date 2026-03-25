@@ -41,19 +41,35 @@ def run(target: str, templates: str = "http/cves", severity: str = "critical,hig
                     pass
 
         if not findings:
-            return "Nuclei done \u2013 0 findings"
+            return f"Nuclei scan -- {target} -- 0 findings"
 
-        summary = f"Nuclei done \u2013 {len(findings)} findings:\n"
+        summary = f"Nuclei scan -- {len(findings)} findings on {target}:\n"
         for finding in findings[:15]:
-            cve_list = (finding.get("info", {}).get("classification") or {}).get("cve-id") or []
-            cve = cve_list[0] if cve_list else finding.get("template-id", "")
-            name = finding.get("info", {}).get("name", "unknown")
-            sev = finding.get("info", {}).get("severity", "?").upper()
+            info = finding.get("info", {})
+            classification = info.get("classification") or {}
+            cve_list = classification.get("cve-id") or []
+            cve = cve_list[0] if cve_list else ""
+            template_id = finding.get("template-id", "")
+            name = info.get("name", "unknown")
+            sev = info.get("severity", "?").upper()
             matched = finding.get("matched-at", finding.get("host", ""))
-            summary += f"  [{sev}] {cve or name} \u2192 {matched}\n"
+            refs = (info.get("reference") or classification.get("cvss-metrics") or [])
+            ref_url = ""
+            if cve:
+                ref_url = f"https://nvd.nist.gov/vuln/detail/{cve}"
+            elif isinstance(refs, list) and refs:
+                ref_url = refs[0]
+
+            label = f"{cve} -- {name}" if cve else name
+            summary += f"\n  [{sev}] {label}\n"
+            summary += f"     URL: {matched}\n"
+            if template_id:
+                summary += f"     Template: {template_id}\n"
+            if ref_url:
+                summary += f"     Reference: {ref_url}\n"
 
         if len(findings) > 15:
-            summary += f"  ... +{len(findings) - 15} more (use read_log 'nuclei.json')"
+            summary += f"\n  ... +{len(findings) - 15} more (use read_log 'nuclei.json')"
 
         logger.info("Nuclei found %d findings on %s", len(findings), target)
         return summary.strip()

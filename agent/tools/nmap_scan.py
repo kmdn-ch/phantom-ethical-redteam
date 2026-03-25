@@ -64,18 +64,30 @@ def run(target: str, ports: str = "-", scan_type: str = "service", timeout: int 
         # Parse results
         open_ports = re.findall(r"(\d+/\w+)\s+open\s+(\S+)\s*(.*)", output)
         os_match = re.search(r"OS details:\s*(.+)", output)
+        time_match = re.search(r"scanned in\s+([\d.]+)\s*s", output)
 
-        summary = f"Nmap {scan_type} scan on {target} \u2013 {len(open_ports)} open ports:\n"
-        for port, service, version in open_ports[:30]:
-            summary += f"  {port:15s} {service:15s} {version.strip()}\n"
-        if len(open_ports) > 30:
-            summary += f"  ... +{len(open_ports) - 30} more\n"
-        if os_match:
-            summary += f"\n  OS: {os_match.group(1)}"
+        summary = f"Nmap {scan_type} scan -- {target} -- {len(open_ports)} open ports:\n"
 
-        if not open_ports:
-            summary += "  No open ports found (host may be filtered or down)\n"
+        if open_ports:
+            # Build aligned table
+            header = ("PORT", "SERVICE", "VERSION")
+            col_port = max(len(header[0]), max(len(p) for p, _, _ in open_ports[:30])) + 2
+            col_svc = max(len(header[1]), max(len(s) for _, s, _ in open_ports[:30])) + 2
+
+            summary += f"\n  {header[0]:<{col_port}}{header[1]:<{col_svc}}{header[2]}\n"
+            summary += f"  {'-' * col_port}{'-' * col_svc}{'-' * 20}\n"
+            for port, service, version in open_ports[:30]:
+                summary += f"  {port:<{col_port}}{service:<{col_svc}}{version.strip()}\n"
+            if len(open_ports) > 30:
+                summary += f"\n  ... +{len(open_ports) - 30} more\n"
+        else:
+            summary += "\n  No open ports found (host may be filtered or down)\n"
             summary += f"  Raw output tail: {output[-300:]}"
+
+        if os_match:
+            summary += f"\n  OS Detection: {os_match.group(1)}"
+        if time_match:
+            summary += f"\n  Scan time: {time_match.group(1)}s"
 
         logger.info("Nmap found %d open ports on %s", len(open_ports), target)
         return summary.strip()

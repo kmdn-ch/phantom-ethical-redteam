@@ -77,11 +77,29 @@ def run(domain: str) -> str:
         return f"Recon failed on all sources: {', '.join(source_results)}"
 
     sorted_subs = sorted(all_subs)
-    summary = f"{len(all_subs)} unique subdomains [{', '.join(source_results)}]:\n"
-    summary += "\n".join(f"  {s}" for s in sorted_subs[:25])
+
+    # Identify potentially interesting subdomains
+    interesting_keywords = {"dev", "staging", "admin", "test", "internal", "vpn", "uat",
+                            "debug", "api-dev", "beta", "preprod", "stage", "jenkins",
+                            "gitlab", "ci", "docker", "k8s", "kube"}
+    notable = []
+    for sub in sorted_subs:
+        prefix = sub.split(".")[0].lower()
+        if prefix in interesting_keywords:
+            notable.append(prefix)
+
+    summary = f"Subdomain reconnaissance -- {domain} -- {len(all_subs)} unique subdomains:\n"
+    summary += f"\n  Sources: {' + '.join(source_results)}\n"
+    summary += "\n  SUBDOMAINS:\n"
+    for s in sorted_subs[:25]:
+        summary += f"    {s}\n"
     if len(sorted_subs) > 25:
-        summary += f"\n  ... +{len(sorted_subs) - 25} more"
-    return summary
+        summary += f"    ... +{len(sorted_subs) - 25} more\n"
+
+    if notable:
+        summary += f"\n  Notable: {len(notable)} potentially interesting ({', '.join(sorted(notable))})"
+
+    return summary.strip()
 
 
 TOOL_SPEC = {
