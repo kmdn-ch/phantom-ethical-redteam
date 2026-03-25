@@ -39,9 +39,25 @@ def retry_request(
     for attempt in range(max_retries + 1):
         try:
             resp = requests.request(method, url, timeout=timeout, verify=verify, **kwargs)
-            resp.raise_for_status()
+
+            # Client errors (4xx) are permanent — never retry them
+            if 400 <= resp.status_code < 500:
+                resp.raise_for_status()
+
+            # Server errors (5xx) are transient — retry them
+            if resp.status_code >= 500:
+                resp.raise_for_status()
+
             return resp
-        except (requests.RequestException, Exception) as exc:
+        except requests.exceptions.HTTPError as exc:
+            # 4xx: permanent failure, raise immediately without retry
+            if exc.response is not None and 400 <= exc.response.status_code < 500:
+                logger.error(
+                    "HTTP %s %s — client error %d (not retryable): %s",
+                    method, url, exc.response.status_code, exc,
+                )
+                raise
+            # 5xx: transient, fall through to retry logic
             last_exc = exc
             if attempt < max_retries:
                 wait = backoff_factor ** attempt
@@ -55,4 +71,23 @@ def retry_request(
                     "HTTP %s %s failed after %d attempts: %s",
                     method, url, max_retries + 1, exc,
                 )
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            # Connection/timeout errors are transient — retry
+            last_exc = exc
+            if attempt < max_retries:
+                wait = backoff_factor ** attempt
+                logger.warning(
+                    "HTTP %s %s failed (attempt %d/%d): %s — retrying in %.1fs",
+                    method, url, attempt + 1, max_retries + 1, exc, wait,
+                )
+                time.sleep(wait)
+            else:
+                logger.error(
+                    "HTTP %s %s failed after %d attempts: %s",
+                    method, url, max_retries + 1, exc,
+                )
+        except requests.RequestException as exc:
+            # Other request errors — not retryable
+            logger.error("HTTP %s %s — request error (not retryable): %s", method, url, exc)
+            raise
     raise last_exc

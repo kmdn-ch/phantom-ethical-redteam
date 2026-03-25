@@ -7,7 +7,7 @@ import logging
 import argparse
 from pathlib import Path
 
-VERSION = "2.7.4"
+VERSION = "2.8.0"
 
 # Ensure agent/ is on sys.path
 sys.path.insert(0, str(Path(__file__).parent))

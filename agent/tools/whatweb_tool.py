@@ -4,7 +4,7 @@ import json
 import logging
 import subprocess
 
-import requests
+from .http_utils import retry_request
 from .scope_checker import scope_guard
 from .logs_helper import log_path
 
@@ -22,6 +22,38 @@ CMS_SIGNATURES = {
     "React": ["react-root", "data-reactroot", "__REACT"],
     "Vue.js": ["__vue__", "data-v-"],
     "Angular": ["ng-version", "ng-app"],
+    "Express.js": [],  # Detected via X-Powered-By header
+    "ASP.NET": ["__VIEWSTATE", "__EVENTVALIDATION"],
+    "Ruby on Rails": ["authenticity_token"],
+    "Spring Boot": ["Whitelabel Error Page", "X-Application-Context"],
+}
+
+# Header-based framework signatures (header-name -> header-value-substring -> label)
+HEADER_SIGNATURES = {
+    "X-Powered-By": {
+        "Express": "Express.js",
+        "ASP.NET": "ASP.NET",
+        "PHP": "PHP",
+    },
+    "X-Request-Id": {"": "Ruby on Rails (probable)"},
+    "X-Runtime": {"": "Ruby on Rails (probable)"},
+    "X-Application-Context": {"": "Spring Boot"},
+}
+
+# Server header fingerprints
+SERVER_SIGNATURES = {
+    "nginx": "Nginx",
+    "apache": "Apache",
+    "microsoft-iis": "IIS",
+    "cloudflare": "Cloudflare",
+    "litespeed": "LiteSpeed",
+}
+
+# Interesting files to probe for information disclosure
+INTERESTING_FILES = {
+    ".env": "Environment file exposed — may contain secrets",
+    ".git/HEAD": "Git repository exposed — source code leak risk",
+    "/.well-known/security.txt": "security.txt present",
 }
 
 
@@ -33,13 +65,30 @@ def _fallback_fingerprint(target: str) -> str:
     results = []
 
     try:
-        resp = requests.get(target, timeout=10, allow_redirects=True, verify=False)
+        resp = retry_request(target, timeout=10, allow_redirects=True, max_retries=1)
         headers = resp.headers
         body = resp.text[:50000]
 
-        # Server headers
-        if headers.get("Server"):
-            results.append(f"Server: {headers['Server']}")
+        # Server header detection
+        server = headers.get("Server", "")
+        if server:
+            results.append(f"Server: {server}")
+            server_lower = server.lower()
+            for sig, label in SERVER_SIGNATURES.items():
+                if sig in server_lower:
+                    results.append(f"Web server: {label}")
+                    break
+
+        # Header-based framework detection
+        detected_frameworks = set()
+        for header_name, sig_map in HEADER_SIGNATURES.items():
+            header_val = headers.get(header_name, "")
+            if not header_val:
+                continue
+            for substring, label in sig_map.items():
+                if substring == "" or substring.lower() in header_val.lower():
+                    detected_frameworks.add(label)
+
         if headers.get("X-Powered-By"):
             results.append(f"X-Powered-By: {headers['X-Powered-By']}")
         if headers.get("X-Generator"):
@@ -47,14 +96,27 @@ def _fallback_fingerprint(target: str) -> str:
         if headers.get("X-AspNet-Version"):
             results.append(f"ASP.NET: {headers['X-AspNet-Version']}")
 
-        # CMS detection
+        for fw in sorted(detected_frameworks):
+            results.append(f"Framework (header): {fw}")
+
+        # CMS / body-based detection
         for cms, sigs in CMS_SIGNATURES.items():
-            if any(sig.lower() in body.lower() for sig in sigs):
+            if sigs and any(sig.lower() in body.lower() for sig in sigs):
                 results.append(f"CMS/Framework: {cms}")
 
+        # Rails-specific: check for authenticity_token + X-Runtime combo
+        if "authenticity_token" in body and headers.get("X-Runtime"):
+            if "Ruby on Rails (probable)" not in detected_frameworks:
+                results.append("CMS/Framework: Ruby on Rails")
+
         # Security headers
-        security_headers = ["Strict-Transport-Security", "Content-Security-Policy",
-                          "X-Frame-Options", "X-Content-Type-Options", "X-XSS-Protection"]
+        security_headers = [
+            "Strict-Transport-Security",
+            "Content-Security-Policy",
+            "X-Frame-Options",
+            "X-Content-Type-Options",
+            "X-XSS-Protection",
+        ]
         present = [h for h in security_headers if h in headers]
         missing = [h for h in security_headers if h not in headers]
         if present:
@@ -67,7 +129,7 @@ def _fallback_fingerprint(target: str) -> str:
 
     # Check robots.txt
     try:
-        r = requests.get(f"{target}/robots.txt", timeout=5, verify=False)
+        r = retry_request(f"{target}/robots.txt", timeout=5, max_retries=0)
         if r.status_code == 200 and len(r.text) > 10:
             results.append(f"robots.txt: found ({len(r.text)} bytes)")
     except Exception:
@@ -75,18 +137,51 @@ def _fallback_fingerprint(target: str) -> str:
 
     # Check sitemap.xml
     try:
-        r = requests.get(f"{target}/sitemap.xml", timeout=5, verify=False)
+        r = retry_request(f"{target}/sitemap.xml", timeout=5, max_retries=0)
         if r.status_code == 200 and "xml" in r.text[:200].lower():
             results.append(f"sitemap.xml: found ({len(r.text)} bytes)")
     except Exception:
         pass
 
+    # Check interesting files for information disclosure
+    for path, description in INTERESTING_FILES.items():
+        try:
+            url = f"{target}/{path}" if not path.startswith("/") else f"{target}{path}"
+            r = retry_request(url, timeout=5, max_retries=0)
+            if r.status_code == 200 and len(r.text.strip()) > 0:
+                results.append(f"Sensitive file: {path} — {description}")
+        except Exception:
+            pass
+
     if not results:
         return "No technology fingerprints detected."
+
+    # Log summary of detected technologies
+    tech_items = [
+        r
+        for r in results
+        if r.startswith(("Server:", "CMS/Framework:", "Framework (header):", "Web server:"))
+    ]
+    if tech_items:
+        logger.info(
+            "Fallback fingerprint for %s — detected: %s",
+            target,
+            "; ".join(tech_items),
+        )
+    else:
+        logger.info("Fallback fingerprint for %s — no technologies positively identified", target)
+
     return "Technology fingerprint (Python fallback):\n" + "\n".join(f"  {r}" for r in results)
 
 
 def run(target: str, aggression: int = 1) -> str:
+    # URL validation
+    if not target.startswith("http://") and not target.startswith("https://"):
+        return (
+            f"Invalid target URL: {target!r} — "
+            "target must start with http:// or https://"
+        )
+
     guard = scope_guard(target)
     if guard:
         return guard
@@ -112,7 +207,7 @@ def run(target: str, aggression: int = 1) -> str:
         return f"WhatWeb returned no results.\n{result.stderr[:300]}"
 
     except FileNotFoundError:
-        logger.info("WhatWeb not found, using Python fallback for %s", target)
+        logger.debug("WhatWeb not found, using Python fallback for %s", target)
         return _fallback_fingerprint(target)
     except Exception as e:
         logger.warning("WhatWeb failed (%s), using fallback: %s", target, e)
@@ -122,7 +217,7 @@ def run(target: str, aggression: int = 1) -> str:
 TOOL_SPEC = {
     "name": "run_whatweb",
     "description": (
-        "Web technology fingerprinting \u2014 detect CMS, frameworks, server software, "
+        "Web technology fingerprinting — detect CMS, frameworks, server software, "
         "security headers. Uses WhatWeb if available, otherwise Python-based fallback."
     ),
     "input_schema": {

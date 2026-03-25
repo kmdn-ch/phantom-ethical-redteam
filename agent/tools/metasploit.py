@@ -4,11 +4,28 @@ import re
 import logging
 import subprocess
 from datetime import datetime
+from pathlib import Path
+
+import yaml
 
 from .scope_checker import scope_guard
 from .logs_helper import log_path
 
 logger = logging.getLogger(__name__)
+
+
+def _get_default_timeout() -> int:
+    """Read metasploit_timeout from config.yaml, fallback to 120."""
+    try:
+        config_path = Path(__file__).parent.parent.parent / "config.yaml"
+        with open(config_path, encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+        return int(cfg.get("metasploit_timeout", 120))
+    except Exception:
+        return 120
+
+
+_DEFAULT_TIMEOUT = _get_default_timeout()
 
 # ---------------------------------------------------------------------------
 # Safety: blocked module path fragments (post-exploitation, persistence, etc.)
@@ -18,6 +35,10 @@ BLOCKED_MODULE_PATTERNS = (
     "payload/meterpreter",
     "persistence",
     "backdoor",
+    "bind_tcp",
+    "bind_shell",
+    "evasion/",
+    "encoder/",
 )
 
 # Default payloads (reverse shells only — never bind shells)
@@ -34,7 +55,7 @@ def _is_module_blocked(module: str) -> str | None:
         if pattern in mod_lower:
             return (
                 f"BLOCKED: Module '{module}' matches blocked pattern '{pattern}'. "
-                "Post-exploitation, meterpreter, persistence, and backdoor modules "
+                "Post-exploitation, meterpreter, persistence, backdoor, bind shell, evasion, and encoder modules "
                 "are not permitted. Only exploit/ and auxiliary/ modules are allowed."
             )
     return None
@@ -225,9 +246,11 @@ def run(
     target: str = "",
     options: dict | None = None,
     search_term: str = "",
-    timeout: int = 120,
+    timeout: int = 0,
 ) -> str:
     """Execute a Metasploit action (search, exploit, or auxiliary)."""
+    if timeout <= 0:
+        timeout = _DEFAULT_TIMEOUT
     options = options or {}
 
     # ------------------------------------------------------------------
@@ -382,6 +405,7 @@ TOOL_SPEC = {
         "properties": {
             "action": {
                 "type": "string",
+                "enum": ["search", "exploit", "auxiliary"],
                 "description": "Action to perform: search | exploit | auxiliary",
             },
             "module": {

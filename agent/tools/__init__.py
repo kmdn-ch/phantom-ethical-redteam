@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import logging
 
 __all__ = ["register_tool", "ALL_TOOLS", "get_tool_mapping", "TOOL_REGISTRY", "TOOL_SPECS"]
@@ -67,7 +68,7 @@ def _import_all_tools():
     ]
     for mod_name in _optional:
         try:
-            mod = __import__(f"tools.{mod_name}", fromlist=[mod_name])
+            mod = importlib.import_module(f".{mod_name}", package="tools")
             # If the module uses @register_tool, it's already registered.
             # If not, try manual registration from TOOL_SPEC + run.
             spec = getattr(mod, "TOOL_SPEC", None)
@@ -76,7 +77,7 @@ def _import_all_tools():
                 TOOL_SPECS.append(spec)
                 TOOL_REGISTRY[spec["name"]] = run_fn
         except ImportError as e:
-            logger.debug("Optional tool '%s' not available: %s", mod_name, e)
+            logger.warning("Optional tool '%s' not available: %s", mod_name, e)
 
 
 # Auto-register all tools on import

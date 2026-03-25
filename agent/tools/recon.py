@@ -23,17 +23,28 @@ def _fetch_hackertarget(domain: str) -> set:
 
 def _fetch_securitytrails_free(domain: str) -> set:
     """DNS recon via SecurityTrails public/guest API (no auth, rate-limited)."""
+    import requests
+
     try:
-        r = retry_request(
-            f"https://api.securitytrails.com/v1/domain/{domain}/subdomains?apikey=guest",
-            timeout=15,
+        r = requests.get(
+            f"https://api.securitytrails.com/v1/domain/{domain}/subdomains",
+            params={"apikey": "guest"},
+            timeout=10,
+            verify=False,
         )
+        if r.status_code in (401, 403):
+            logger.debug("SecurityTrails returned %d — skipping", r.status_code)
+            return set()
+        if r.status_code != 200:
+            logger.warning("SecurityTrails unexpected status %d for %s", r.status_code, domain)
+            return set()
         data = r.json()
         subs = set()
         for sub in data.get("subdomains", []):
             subs.add(f"{sub}.{domain}".lower())
         return subs
-    except Exception:
+    except Exception as exc:
+        logger.warning("SecurityTrails request failed for %s: %s", domain, exc)
         return set()
 
 
