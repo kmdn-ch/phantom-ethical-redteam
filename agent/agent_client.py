@@ -22,6 +22,11 @@ _SEVERITY_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Rate-limit signal detection — triggers auto stealth downgrade
+_RATE_LIMIT_RE = re.compile(r"(429|rate.limit|too many requests|\[WARN\].*429)", re.IGNORECASE)
+_RATE_LIMIT_THRESHOLD = 3   # consecutive tool results with rate-limit signals
+_RATE_LIMIT_AUTO_PROFILE = "stealthy"
+
 
 class AgentClient:
 
@@ -38,6 +43,8 @@ class AgentClient:
         self._stall_threshold = config.get("stall_threshold", 5)
         self._total_findings = 0
         self._turn_count = 0
+        # Rate-limit detection
+        self._rate_limit_count = 0
 
     def _compact_old_tool_results(self, messages: list[dict], keep_last_n: int = 3) -> list[dict]:
         """Truncate content of old tool_result blocks to avoid context overflow."""
@@ -188,9 +195,36 @@ class AgentClient:
             print(f"  >> Running: {', '.join(tool_names)}")
             tool_results = self._execute_tools_parallel(tool_calls)
 
-            # Count findings in tool results
+            # Count findings in tool results + detect rate-limiting signals
             for tr in tool_results:
-                turn_findings += self._count_findings_in_text(str(tr.get("content", "")))
+                content = str(tr.get("content", ""))
+                turn_findings += self._count_findings_in_text(content)
+                if _RATE_LIMIT_RE.search(content):
+                    self._rate_limit_count += 1
+                else:
+                    self._rate_limit_count = max(0, self._rate_limit_count - 1)
+
+            # Auto-downgrade stealth profile after repeated rate-limit signals
+            if self._rate_limit_count >= _RATE_LIMIT_THRESHOLD:
+                try:
+                    from tools.stealth import set_profile as _set_profile, get_profile_name as _get_name
+                    if _get_name() not in ("silent", "stealthy"):
+                        _set_profile(_RATE_LIMIT_AUTO_PROFILE)
+                        logger.warning(
+                            "Auto-downgraded stealth profile to '%s' after %d rate-limit signals",
+                            _RATE_LIMIT_AUTO_PROFILE, self._rate_limit_count,
+                        )
+                        new_messages.append({
+                            "role": "user",
+                            "content": (
+                                f"[SYSTEM] Target is rate-limiting requests ({self._rate_limit_count} signals). "
+                                f"Stealth profile auto-set to '{_RATE_LIMIT_AUTO_PROFILE}'. "
+                                "Introduce longer delays between tool calls and avoid burst scanning."
+                            ),
+                        })
+                except ImportError:
+                    pass
+                self._rate_limit_count = 0  # reset after action
 
             # Also count non-empty tool results as partial progress (reduces stall sensitivity)
             non_empty_results = sum(

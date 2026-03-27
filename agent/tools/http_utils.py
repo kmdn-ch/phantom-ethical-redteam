@@ -6,6 +6,11 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+try:
+    from .rate_limiter import limiter as _global_limiter
+except ImportError:
+    _global_limiter = None
+
 
 def retry_request(
     url: str,
@@ -37,11 +42,42 @@ def retry_request(
 
     last_exc = None
     for attempt in range(max_retries + 1):
+        # Enforce global rate limit before every request
+        if _global_limiter is not None:
+            _global_limiter.wait()
+
         try:
             resp = requests.request(method, url, timeout=timeout, verify=verify, **kwargs)
 
-            # Client errors (4xx) are permanent — never retry them
+            # 429 Too Many Requests — retryable; honour Retry-After header
+            if resp.status_code == 429:
+                if _global_limiter is not None:
+                    _global_limiter.on_rate_limited()
+                retry_after = resp.headers.get("Retry-After")
+                if retry_after:
+                    try:
+                        wait = float(retry_after)
+                    except ValueError:
+                        wait = backoff_factor ** attempt
+                else:
+                    wait = backoff_factor ** attempt
+                logger.warning(
+                    "HTTP %s %s — 429 rate limited (attempt %d/%d), waiting %.1fs",
+                    method, url, attempt + 1, max_retries + 1, wait,
+                )
+                if attempt < max_retries:
+                    time.sleep(wait)
+                    last_exc = requests.exceptions.HTTPError(response=resp)
+                    continue
+                resp.raise_for_status()
+
+            # Other client errors (4xx) are permanent — never retry them
             if 400 <= resp.status_code < 500:
+                logger.error(
+                    "HTTP %s %s — client error %d (not retryable): %s",
+                    method, url, resp.status_code,
+                    f"{resp.status_code} Client Error for url: {url}",
+                )
                 resp.raise_for_status()
 
             # Server errors (5xx) are transient — retry them
@@ -50,12 +86,8 @@ def retry_request(
 
             return resp
         except requests.exceptions.HTTPError as exc:
-            # 4xx: permanent failure, raise immediately without retry
-            if exc.response is not None and 400 <= exc.response.status_code < 500:
-                logger.error(
-                    "HTTP %s %s — client error %d (not retryable): %s",
-                    method, url, exc.response.status_code, exc,
-                )
+            # 4xx (non-429): permanent failure, raise immediately without retry
+            if exc.response is not None and 400 <= exc.response.status_code < 500 and exc.response.status_code != 429:
                 raise
             # 5xx: transient, fall through to retry logic
             last_exc = exc

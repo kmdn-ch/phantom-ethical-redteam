@@ -2,20 +2,27 @@
 
 import os
 import logging
+import requests
+from pathlib import Path
 from .http_utils import retry_request
 
 logger = logging.getLogger(__name__)
 
-WORDLISTS_DIR = "wordlists"
+# Absolute path anchored to project root — immune to launch-directory variation
+_HERE = Path(__file__).parent
+WORDLISTS_DIR = str(_HERE.parent.parent / "wordlists")
+
 PATT_BASE = "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master"
 
+# Note: verify paths against https://github.com/swisskyrepo/PayloadsAllTheThings
+# if a category returns 404, the upstream repo may have reorganized.
 CATEGORIES = {
-    "sqli":           "SQL%20Injection/Intruder/SQL-Injection-Generic.txt",
+    "sqli":           "SQL%20Injection/Intruder/SQL-Injection.txt",
     "sqli-error":     "SQL%20Injection/Intruder/SQL-Injection-Error-Based.txt",
     "xss":            "XSS%20Injection/Intruder/XSS-without-HTML.txt",
     "xss-html":       "XSS%20Injection/Intruder/XSS-with-HTML.txt",
-    "lfi":            "File%20Inclusion/Intruder/Linux-Traversal.txt",
-    "lfi-windows":    "File%20Inclusion/Intruder/Windows-Traversal.txt",
+    "lfi":            "Path%20Traversal/Intruder/Linux-path-traversal.txt",
+    "lfi-windows":    "Path%20Traversal/Intruder/Windows-path-traversal.txt",
     "cmdi":           "Command%20Injection/Intruder/command-execution-unix.txt",
     "cmdi-windows":   "Command%20Injection/Intruder/command-execution-windows.txt",
     "ssrf":           "Server%20Side%20Request%20Forgery/Intruder/SSRF.txt",
@@ -40,6 +47,17 @@ def run(category: str, for_ffuf: bool = False, ffuf_url: str = "") -> str:
     try:
         r = retry_request(url, timeout=15)
         payloads = [l for l in r.text.splitlines() if l.strip() and not l.startswith("#")]
+    except requests.exceptions.HTTPError as exc:
+        if exc.response is not None and exc.response.status_code == 404:
+            logger.error("PATT URL 404 — path may be stale for category '%s': %s", category, url)
+            return (
+                f"[ERROR] PATT fetch failed (404) for category '{category}'.\n"
+                f"The upstream path may have moved: {url}\n"
+                "Check https://github.com/swisskyrepo/PayloadsAllTheThings for the current structure\n"
+                "and update CATEGORIES in agent/tools/payloads.py."
+            )
+        logger.error("Failed to fetch PATT payloads: %s", exc)
+        return f"Failed to fetch PATT payloads: {str(exc)}"
     except Exception as e:
         logger.error("Failed to fetch PATT payloads: %s", e)
         return f"Failed to fetch PATT payloads: {str(e)}"

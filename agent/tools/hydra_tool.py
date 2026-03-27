@@ -6,6 +6,7 @@ import stat
 import subprocess
 import re
 import tempfile
+import time
 
 from .scope_checker import scope_guard
 from .logs_helper import log_path
@@ -36,8 +37,12 @@ SERVICE_DEFAULTS = {
 }
 
 
+_MAX_CONSECUTIVE_429 = 3  # Abort after this many consecutive 429 responses
+
+
 def _python_http_brute(target: str, usernames: list, passwords: list, form_params: dict) -> list:
     """Pure Python HTTP form brute force (fallback when Hydra unavailable)."""
+    import requests as _requests
     from .http_utils import retry_request
     results = []
     login_url = target
@@ -46,10 +51,19 @@ def _python_http_brute(target: str, usernames: list, passwords: list, form_param
     fail_string = form_params.get("fail_string", "invalid")
 
     tested = 0
+    consecutive_429 = 0
+
     for user in usernames:
         for passwd in passwords:
             if tested >= 50:  # Safety limit
                 results.append(f"[INFO] Stopped after {tested} attempts (safety limit)")
+                return results
+            if consecutive_429 >= _MAX_CONSECUTIVE_429:
+                results.append(
+                    f"[WARN] Aborted after {consecutive_429} consecutive 429 responses "
+                    f"({tested} attempts completed). Target is rate-limiting this IP — "
+                    "stopping to avoid site-wide block."
+                )
                 return results
             stealth_delay()
             try:
@@ -60,13 +74,28 @@ def _python_http_brute(target: str, usernames: list, passwords: list, form_param
                     timeout=10, max_retries=1,
                 )
                 tested += 1
+                consecutive_429 = 0  # reset on any successful response
                 body = resp.text.lower()
                 # Check for success (no fail string, or redirect, or 302)
                 if fail_string.lower() not in body and resp.status_code in (200, 301, 302, 303):
                     if resp.status_code in (301, 302, 303) or "dashboard" in body or "welcome" in body:
                         results.append(f"[CRITICAL] Valid credentials: {user}:{passwd}")
                         logger.info("CREDENTIAL FOUND: %s on %s", user, target)
+            except _requests.exceptions.HTTPError as exc:
+                tested += 1
+                if exc.response is not None and exc.response.status_code == 429:
+                    consecutive_429 += 1
+                    wait = 5.0 * consecutive_429
+                    logger.warning(
+                        "429 received (%d consecutive) on %s — backing off %.0fs",
+                        consecutive_429, target, wait,
+                    )
+                    time.sleep(wait)
+                else:
+                    consecutive_429 = 0
             except Exception:
+                tested += 1
+                consecutive_429 = 0
                 continue
 
     if not results:

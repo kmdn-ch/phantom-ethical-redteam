@@ -168,7 +168,13 @@ def run(target: str, api_token: str = "") -> str:
 
     except FileNotFoundError:
         logger.info("wpscan CLI not found — using Python fallback")
-        return _python_wpscan(target)
+        fallback = _python_wpscan(target)
+        return (
+            "[WARN] wpscan CLI not found — running degraded Python fallback.\n"
+            "  Install wpscan for full CVE scanning: https://github.com/wpscanteam/wpscan\n"
+            "  Fallback covers: path probing, version detection, user enum, xmlrpc check.\n"
+            "  Missing: plugin CVE database, theme scanning, TimThumb detection.\n\n"
+        ) + fallback
     except subprocess.TimeoutExpired:
         return _python_wpscan(target)
     except Exception as e:

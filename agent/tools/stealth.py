@@ -93,14 +93,16 @@ def random_ua() -> str:
     return USER_AGENTS[0]
 
 
+_MIN_DELAY_SECONDS = 0.05  # 50ms absolute floor — prevents wire-speed flooding
+
+
 def stealth_delay():
-    """Apply random delay based on current profile."""
+    """Apply random delay based on current profile (minimum 50ms always enforced)."""
     profile = get_profile()
     lo, hi = profile["delay_range"]
-    if hi > 0:
-        delay = random.uniform(lo, hi)
-        if delay > 0:
-            time.sleep(delay)
+    delay = random.uniform(lo, hi) if hi > 0 else 0.0
+    delay = max(delay, _MIN_DELAY_SECONDS)
+    time.sleep(delay)
 
 
 def get_proxy() -> dict | None:

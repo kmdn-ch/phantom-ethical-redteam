@@ -7,7 +7,7 @@ import logging
 import argparse
 from pathlib import Path
 
-VERSION = "2.7.6"
+VERSION = "2.7.7"
 
 # Ensure agent/ is on sys.path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -142,6 +142,21 @@ print(f"  Scope     : {SCOPE.splitlines()[0]}")
 if args.resume:
     print(f"  RESUMING  : {args.resume}")
 print("=" * 50 + "\n")
+
+# Apply rate limit from config
+try:
+    from tools.rate_limiter import limiter as _limiter
+    _limiter.configure(config.get("requests_per_second", 5.0))
+except ImportError:
+    pass
+
+# Apply stealth profile from config
+try:
+    from tools.stealth import set_profile as _set_stealth
+    _stealth_result = _set_stealth(config.get("stealth_profile", "normal"))
+    logger.info("Startup stealth profile: %s", _stealth_result)
+except ImportError:
+    pass
 
 client = AgentClient(config=config)
 
