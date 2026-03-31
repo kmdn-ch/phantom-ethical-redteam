@@ -5,7 +5,13 @@ from __future__ import annotations
 import importlib
 import logging
 
-__all__ = ["register_tool", "ALL_TOOLS", "get_tool_mapping", "TOOL_REGISTRY", "TOOL_SPECS"]
+__all__ = [
+    "register_tool",
+    "ALL_TOOLS",
+    "get_tool_mapping",
+    "TOOL_REGISTRY",
+    "TOOL_SPECS",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +22,12 @@ TOOL_SPECS: list[dict] = []
 
 def register_tool(spec: dict):
     """Decorator to register a tool function with its spec."""
+
     def decorator(func):
         TOOL_REGISTRY[spec["name"]] = func
         TOOL_SPECS.append(spec)
         return func
+
     return decorator
 
 
@@ -41,17 +49,31 @@ def _import_all_tools():
     from .report import run as generate_report, TOOL_SPEC as report_spec
 
     _core_specs = [
-        nuclei_spec, sqlmap_spec, ffuf_spec, recon_spec, phish_spec, cleanup_spec,
-        bettercap_spec, zphisher_spec, read_log_spec, payloads_spec,
-        human_input_spec, report_spec,
+        nuclei_spec,
+        sqlmap_spec,
+        ffuf_spec,
+        recon_spec,
+        phish_spec,
+        cleanup_spec,
+        bettercap_spec,
+        zphisher_spec,
+        read_log_spec,
+        payloads_spec,
+        human_input_spec,
+        report_spec,
     ]
     _core_funcs = {
-        "run_nuclei": run_nuclei, "run_sqlmap": run_sqlmap, "run_ffuf": run_ffuf,
-        "run_recon": run_recon, "generate_phish_template": generate_phish_template,
-        "cleanup_temp": cleanup_temp, "run_bettercap": run_bettercap,
+        "run_nuclei": run_nuclei,
+        "run_sqlmap": run_sqlmap,
+        "run_ffuf": run_ffuf,
+        "run_recon": run_recon,
+        "generate_phish_template": generate_phish_template,
+        "cleanup_temp": cleanup_temp,
+        "run_bettercap": run_bettercap,
         "generate_zphisher_template": generate_zphisher_template,
         "read_log": read_log,
-        "run_payloads": run_payloads, "request_human_input": request_human_input,
+        "run_payloads": run_payloads,
+        "request_human_input": request_human_input,
         "generate_report": generate_report,
     }
     TOOL_SPECS.extend(_core_specs)
@@ -59,11 +81,19 @@ def _import_all_tools():
 
     # --- Optional tools (use @register_tool decorator or manual fallback) ---
     _optional = [
-        "nmap_scan", "whatweb_tool", "screenshot",
-        "auth_manager", "mission_diff",
-        "cvss_scorer", "scope_checker",
-        "wpscan", "jwt_tool", "graphql_enum",
-        "hydra_tool", "privesc", "stealth",
+        "nmap_scan",
+        "whatweb_tool",
+        "screenshot",
+        "auth_manager",
+        "mission_diff",
+        "cvss_scorer",
+        "scope_checker",
+        "wpscan",
+        "jwt_tool",
+        "graphql_enum",
+        "hydra_tool",
+        "privesc",
+        "stealth",
         "metasploit",
     ]
     for mod_name in _optional:

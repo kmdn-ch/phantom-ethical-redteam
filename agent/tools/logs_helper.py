@@ -34,7 +34,8 @@ def log_path(filename: str) -> str:
         # Path traversal attempt — fall back to a safe filename
         logger.warning(
             "Path traversal blocked: '%s' resolves outside session dir '%s'",
-            filename, session_dir,
+            filename,
+            session_dir,
         )
         # Replace dangerous characters and use just the basename
         safe_name = os.path.basename(filename).replace("..", "_")

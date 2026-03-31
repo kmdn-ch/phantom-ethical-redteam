@@ -13,7 +13,9 @@ def _fetch_crtsh(domain: str) -> set:
 
 
 def _fetch_hackertarget(domain: str) -> set:
-    r = retry_request(f"https://api.hackertarget.com/hostsearch/?q={domain}", timeout=15)
+    r = retry_request(
+        f"https://api.hackertarget.com/hostsearch/?q={domain}", timeout=15
+    )
     subs = set()
     for line in r.text.strip().splitlines():
         if "," in line:
@@ -36,7 +38,9 @@ def _fetch_securitytrails_free(domain: str) -> set:
             logger.debug("SecurityTrails returned %d — skipping", r.status_code)
             return set()
         if r.status_code != 200:
-            logger.warning("SecurityTrails unexpected status %d for %s", r.status_code, domain)
+            logger.warning(
+                "SecurityTrails unexpected status %d for %s", r.status_code, domain
+            )
             return set()
         data = r.json()
         subs = set()
@@ -79,16 +83,35 @@ def run(domain: str) -> str:
     sorted_subs = sorted(all_subs)
 
     # Identify potentially interesting subdomains
-    interesting_keywords = {"dev", "staging", "admin", "test", "internal", "vpn", "uat",
-                            "debug", "api-dev", "beta", "preprod", "stage", "jenkins",
-                            "gitlab", "ci", "docker", "k8s", "kube"}
+    interesting_keywords = {
+        "dev",
+        "staging",
+        "admin",
+        "test",
+        "internal",
+        "vpn",
+        "uat",
+        "debug",
+        "api-dev",
+        "beta",
+        "preprod",
+        "stage",
+        "jenkins",
+        "gitlab",
+        "ci",
+        "docker",
+        "k8s",
+        "kube",
+    }
     notable = []
     for sub in sorted_subs:
         prefix = sub.split(".")[0].lower()
         if prefix in interesting_keywords:
             notable.append(prefix)
 
-    summary = f"Subdomain reconnaissance -- {domain} -- {len(all_subs)} unique subdomains:\n"
+    summary = (
+        f"Subdomain reconnaissance -- {domain} -- {len(all_subs)} unique subdomains:\n"
+    )
     summary += f"\n  Sources: {' + '.join(source_results)}\n"
     summary += "\n  SUBDOMAINS:\n"
     for s in sorted_subs[:25]:

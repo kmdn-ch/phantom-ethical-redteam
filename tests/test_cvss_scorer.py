@@ -15,19 +15,21 @@ import tools  # noqa — triggers auto-registration
 
 
 class TestCVSSScorer:
-
     def test_no_findings_returns_none_score(self):
         from tools.cvss_scorer import run
+
         result = run(findings=[])
         assert "0.0/10" in result or "No valid findings" in result
 
     def test_none_findings(self):
         from tools.cvss_scorer import run
+
         result = run(findings=None)
         assert "No findings" in result
 
     def test_critical_finding_gives_high_score(self):
         from tools.cvss_scorer import run
+
         result = run(findings=[{"severity": "critical"}, {"severity": "critical"}])
         assert "Critical" in result or "High" in result
         # Score must be numeric and present
@@ -35,6 +37,7 @@ class TestCVSSScorer:
 
     def test_mixed_severities(self):
         from tools.cvss_scorer import run
+
         findings = [
             {"severity": "critical"},
             {"severity": "high"},
@@ -49,20 +52,24 @@ class TestCVSSScorer:
 
     def test_score_capped_at_10(self):
         from tools.cvss_scorer import run
+
         # Many critical findings — score should not exceed 10
         findings = [{"severity": "critical"}] * 50
         result = run(findings=findings)
         # Extract score
         import re
+
         m = re.search(r"Risk Score: ([\d.]+)/10", result)
         assert m is not None
         assert float(m.group(1)) <= 10.0
 
     def test_info_only_gives_low_score(self):
         from tools.cvss_scorer import run
+
         findings = [{"severity": "info"}] * 5
         result = run(findings=findings)
         import re
+
         m = re.search(r"Risk Score: ([\d.]+)/10", result)
         assert m is not None
         assert float(m.group(1)) < 3.0
@@ -70,12 +77,14 @@ class TestCVSSScorer:
     def test_nested_severity_format(self):
         """Support Nuclei-style nested {'info': {'severity': 'high'}} format."""
         from tools.cvss_scorer import run
+
         findings = [{"info": {"severity": "high"}, "template-id": "test"}]
         result = run(findings=findings)
         assert "High: 1" in result
 
     def test_unknown_severity_counted_as_info(self):
         from tools.cvss_scorer import run
+
         findings = [{"severity": "unknown_level"}]
         result = run(findings=findings)
         # Should not crash; unknown severity falls through as info

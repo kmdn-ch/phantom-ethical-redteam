@@ -50,10 +50,7 @@ class TestNucleiParsing:
     def test_empty_file(self, tmp_path):
         path = tmp_path / "nuclei.json"
         path.write_text("")
-        parsed = [
-            json.loads(l) for l in path.read_text().splitlines()
-            if l.strip()
-        ]
+        parsed = [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
         assert parsed == []
 
     def test_malformed_json(self, tmp_path):
@@ -68,7 +65,9 @@ class TestNucleiParsing:
         assert len(parsed) == 2
 
     def test_missing_info_field(self, tmp_path):
-        path = self._write_jsonl(tmp_path, [{"template-id": "test", "host": "dummytarget.com"}])
+        path = self._write_jsonl(
+            tmp_path, [{"template-id": "test", "host": "dummytarget.com"}]
+        )
         content = path.read_text()
         entry = json.loads(content.strip())
         # Should not crash when accessing info

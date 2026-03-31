@@ -99,10 +99,14 @@ class EventBus:
     """In-process synchronous pub/sub for events."""
 
     def __init__(self) -> None:
-        self._subscribers: dict[EventType, list[Callable[[Event], None]]] = defaultdict(list)
+        self._subscribers: dict[EventType, list[Callable[[Event], None]]] = defaultdict(
+            list
+        )
         self._global_subscribers: list[Callable[[Event], None]] = []
 
-    def subscribe(self, event_type: EventType, handler: Callable[[Event], None]) -> None:
+    def subscribe(
+        self, event_type: EventType, handler: Callable[[Event], None]
+    ) -> None:
         self._subscribers[event_type].append(handler)
 
     def subscribe_all(self, handler: Callable[[Event], None]) -> None:

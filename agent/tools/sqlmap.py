@@ -25,9 +25,16 @@ def run(url: str, level: int = 3, risk: int = 3, timeout: int = 300) -> str:
     output_dir = log_path("sqlmap")
     os.makedirs(output_dir, exist_ok=True)
     cmd = [
-        "sqlmap", "-u", url, "--batch",
-        "--level", str(level), "--risk", str(risk),
-        "--output-dir", output_dir,
+        "sqlmap",
+        "-u",
+        url,
+        "--batch",
+        "--level",
+        str(level),
+        "--risk",
+        str(risk),
+        "--output-dir",
+        output_dir,
     ]
 
     logger.info("Running sqlmap: %s (level=%d, risk=%d)", url, level, risk)

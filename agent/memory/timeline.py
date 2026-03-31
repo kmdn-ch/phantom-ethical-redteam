@@ -152,9 +152,7 @@ class TimelineBuilder:
             if phase["max_severity"] not in ("none", "info"):
                 sev_badge = f" [{phase['max_severity'].upper()}]"
 
-            lines.append(
-                f"## Phase: {phase['phase'].upper()}{sev_badge}"
-            )
+            lines.append(f"## Phase: {phase['phase'].upper()}{sev_badge}")
             lines.append(
                 f"*{_format_duration(phase['duration_seconds'])} | "
                 f"{phase['event_count']} events | "

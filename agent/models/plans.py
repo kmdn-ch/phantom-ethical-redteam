@@ -38,7 +38,9 @@ class AttackAction:
 
     def to_dict(self) -> dict:
         d = asdict(self)
-        d["status"] = self.status.value if isinstance(self.status, ActionStatus) else self.status
+        d["status"] = (
+            self.status.value if isinstance(self.status, ActionStatus) else self.status
+        )
         return d
 
     @classmethod

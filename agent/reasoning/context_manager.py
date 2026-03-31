@@ -23,13 +23,13 @@ _CHARS_PER_TOKEN = 3.5
 
 # Default token budgets per prompt section
 _DEFAULT_BUDGETS = {
-    "system_prompt": 0.10,    # 10% for the system prompt
-    "state_summary": 0.20,    # 20% for mission memory + attack state
-    "graph_summary": 0.10,    # 10% for attack graph
-    "hypotheses": 0.10,       # 10% for hypotheses
-    "last_plan": 0.10,        # 10% for current plan
-    "conversation": 0.30,     # 30% for recent conversation turns
-    "tool_results": 0.10,     # 10% for latest tool results
+    "system_prompt": 0.10,  # 10% for the system prompt
+    "state_summary": 0.20,  # 20% for mission memory + attack state
+    "graph_summary": 0.10,  # 10% for attack graph
+    "hypotheses": 0.10,  # 10% for hypotheses
+    "last_plan": 0.10,  # 10% for current plan
+    "conversation": 0.30,  # 30% for recent conversation turns
+    "tool_results": 0.10,  # 10% for latest tool results
 }
 
 # Provider context window sizes (tokens)
@@ -82,7 +82,9 @@ class ContextManager:
         budget = self._compute_budgets()
 
         # 1. System prompt with dynamic placeholders
-        state_summary = self._build_state_summary(mission_memory, attack_state, budget["state_summary"])
+        state_summary = self._build_state_summary(
+            mission_memory, attack_state, budget["state_summary"]
+        )
         graph_summary = self._build_graph_summary(attack_graph, budget["graph_summary"])
         hypotheses = self._build_hypotheses(attack_state, budget["hypotheses"])
         last_plan = self._build_plan_summary(attack_state, budget["last_plan"])
@@ -103,7 +105,9 @@ class ContextManager:
 
         # 3. Latest tool results (if any)
         if tool_results:
-            results_text = self._format_tool_results(tool_results, budget["tool_results"])
+            results_text = self._format_tool_results(
+                tool_results, budget["tool_results"]
+            )
             messages.append({"role": "user", "content": results_text})
 
         return messages
@@ -112,8 +116,7 @@ class ContextManager:
         """Convert percentage budgets to character counts."""
         total_chars = int(self._max_tokens * _CHARS_PER_TOKEN)
         return {
-            section: int(total_chars * pct)
-            for section, pct in self._budgets.items()
+            section: int(total_chars * pct) for section, pct in self._budgets.items()
         }
 
     def _build_state_summary(
@@ -186,7 +189,8 @@ class ContextManager:
 
     def _build_hypotheses(self, state: AttackState, char_budget: int) -> str:
         active = [
-            h for h in state.hypotheses
+            h
+            for h in state.hypotheses
             if h.confidence.value not in ("disproved", "confirmed")
         ]
         if not active:
@@ -255,7 +259,9 @@ class ContextManager:
             content = msg.get("content", "")
             role = msg.get("role", "")
             if role == "tool" and len(content) > max_result_chars:
-                truncated = content[:max_result_chars] + "\n... [truncated for context budget]"
+                truncated = (
+                    content[:max_result_chars] + "\n... [truncated for context budget]"
+                )
                 compressed.append({**msg, "content": truncated})
             else:
                 compressed.append(msg)
@@ -284,7 +290,7 @@ class ContextManager:
     def _truncate(text: str, max_chars: int) -> str:
         if len(text) <= max_chars:
             return text
-        return text[:max_chars - 20] + "\n... [truncated]"
+        return text[: max_chars - 20] + "\n... [truncated]"
 
     @classmethod
     def from_file(

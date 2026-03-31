@@ -7,9 +7,7 @@ import ipaddress
 _DOMAIN_RE = re.compile(
     r"^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.[A-Za-z0-9-]{1,63})*\.[A-Za-z]{2,}$"
 )
-_URL_RE = re.compile(
-    r"^https?://[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+$"
-)
+_URL_RE = re.compile(r"^https?://[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+$")
 _DANGEROUS_CHARS = re.compile(r"[;&|`$(){}]")
 
 

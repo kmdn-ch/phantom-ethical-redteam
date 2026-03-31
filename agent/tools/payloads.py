@@ -17,18 +17,18 @@ PATT_BASE = "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/
 # Note: verify paths against https://github.com/swisskyrepo/PayloadsAllTheThings
 # if a category returns 404, the upstream repo may have reorganized.
 CATEGORIES = {
-    "sqli":           "SQL%20Injection/Intruder/SQL-Injection.txt",
-    "sqli-error":     "SQL%20Injection/Intruder/SQL-Injection-Error-Based.txt",
-    "xss":            "XSS%20Injection/Intruder/XSS-without-HTML.txt",
-    "xss-html":       "XSS%20Injection/Intruder/XSS-with-HTML.txt",
-    "lfi":            "Path%20Traversal/Intruder/Linux-path-traversal.txt",
-    "lfi-windows":    "Path%20Traversal/Intruder/Windows-path-traversal.txt",
-    "cmdi":           "Command%20Injection/Intruder/command-execution-unix.txt",
-    "cmdi-windows":   "Command%20Injection/Intruder/command-execution-windows.txt",
-    "ssrf":           "Server%20Side%20Request%20Forgery/Intruder/SSRF.txt",
-    "ssti":           "Server%20Side%20Template%20Injection/Intruder/Generic.txt",
-    "open-redirect":  "Open%20Redirect/Intruder/Open-Redirect.txt",
-    "xxe":            "XXE%20Injection/Intruder/xxe.txt",
+    "sqli": "SQL%20Injection/Intruder/SQL-Injection.txt",
+    "sqli-error": "SQL%20Injection/Intruder/SQL-Injection-Error-Based.txt",
+    "xss": "XSS%20Injection/Intruder/XSS-without-HTML.txt",
+    "xss-html": "XSS%20Injection/Intruder/XSS-with-HTML.txt",
+    "lfi": "Path%20Traversal/Intruder/Linux-path-traversal.txt",
+    "lfi-windows": "Path%20Traversal/Intruder/Windows-path-traversal.txt",
+    "cmdi": "Command%20Injection/Intruder/command-execution-unix.txt",
+    "cmdi-windows": "Command%20Injection/Intruder/command-execution-windows.txt",
+    "ssrf": "Server%20Side%20Request%20Forgery/Intruder/SSRF.txt",
+    "ssti": "Server%20Side%20Template%20Injection/Intruder/Generic.txt",
+    "open-redirect": "Open%20Redirect/Intruder/Open-Redirect.txt",
+    "xxe": "XXE%20Injection/Intruder/xxe.txt",
     "path-traversal": "Path%20Traversal/Intruder/path-traversal.txt",
 }
 
@@ -46,10 +46,14 @@ def run(category: str, for_ffuf: bool = False, ffuf_url: str = "") -> str:
     url = f"{PATT_BASE}/{path}"
     try:
         r = retry_request(url, timeout=15)
-        payloads = [l for l in r.text.splitlines() if l.strip() and not l.startswith("#")]
+        payloads = [
+            l for l in r.text.splitlines() if l.strip() and not l.startswith("#")
+        ]
     except requests.exceptions.HTTPError as exc:
         if exc.response is not None and exc.response.status_code == 404:
-            logger.error("PATT URL 404 — path may be stale for category '%s': %s", category, url)
+            logger.error(
+                "PATT URL 404 — path may be stale for category '%s': %s", category, url
+            )
             return (
                 f"[ERROR] PATT fetch failed (404) for category '{category}'.\n"
                 f"The upstream path may have moved: {url}\n"
@@ -80,6 +84,7 @@ def run(category: str, for_ffuf: bool = False, ffuf_url: str = "") -> str:
 
     if for_ffuf and ffuf_url:
         from .ffuf import run as ffuf_run
+
         ffuf_result = ffuf_run(url=ffuf_url, wordlist=wordlist_path)
         result += f"\n\n--- ffuf with PATT {category} payloads ---\n{ffuf_result}"
 

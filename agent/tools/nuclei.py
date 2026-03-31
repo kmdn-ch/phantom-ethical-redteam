@@ -10,18 +10,31 @@ from .logs_helper import log_path
 logger = logging.getLogger(__name__)
 
 
-def run(target: str, templates: str = "http/cves", severity: str = "critical,high") -> str:
+def run(
+    target: str, templates: str = "http/cves", severity: str = "critical,high"
+) -> str:
     guard = scope_guard(target)
     if guard:
         return guard
 
     output_path = log_path("nuclei.json")
     cmd = [
-        "nuclei", "-u", target, "-t", templates,
-        "-severity", severity, "-json", "-silent", "-o", output_path,
+        "nuclei",
+        "-u",
+        target,
+        "-t",
+        templates,
+        "-severity",
+        severity,
+        "-json",
+        "-silent",
+        "-o",
+        output_path,
     ]
 
-    logger.info("Running nuclei: %s (templates=%s, severity=%s)", target, templates, severity)
+    logger.info(
+        "Running nuclei: %s (templates=%s, severity=%s)", target, templates, severity
+    )
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
@@ -53,7 +66,7 @@ def run(target: str, templates: str = "http/cves", severity: str = "critical,hig
             name = info.get("name", "unknown")
             sev = info.get("severity", "?").upper()
             matched = finding.get("matched-at", finding.get("host", ""))
-            refs = (info.get("reference") or classification.get("cvss-metrics") or [])
+            refs = info.get("reference") or classification.get("cvss-metrics") or []
             ref_url = ""
             if cve:
                 ref_url = f"https://nvd.nist.gov/vuln/detail/{cve}"
@@ -69,7 +82,9 @@ def run(target: str, templates: str = "http/cves", severity: str = "critical,hig
                 summary += f"     Reference: {ref_url}\n"
 
         if len(findings) > 15:
-            summary += f"\n  ... +{len(findings) - 15} more (use read_log 'nuclei.json')"
+            summary += (
+                f"\n  ... +{len(findings) - 15} more (use read_log 'nuclei.json')"
+            )
 
         logger.info("Nuclei found %d findings on %s", len(findings), target)
         return summary.strip()
@@ -89,7 +104,11 @@ TOOL_SPEC = {
         "properties": {
             "target": {"type": "string"},
             "templates": {"type": "string", "default": "http/cves"},
-            "severity": {"type": "string", "default": "critical,high", "description": "Comma-separated severities (e.g. critical,high,medium)"},
+            "severity": {
+                "type": "string",
+                "default": "critical,high",
+                "description": "Comma-separated severities (e.g. critical,high,medium)",
+            },
         },
         "required": ["target"],
     },

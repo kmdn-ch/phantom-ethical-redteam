@@ -30,16 +30,37 @@ INTROSPECTION_QUERY = """
 
 # Common GraphQL endpoints
 GRAPHQL_PATHS = [
-    "/graphql", "/graphql/", "/graphiql", "/graphql/console",
-    "/api/graphql", "/api/v1/graphql", "/v1/graphql",
-    "/query", "/gql", "/playground",
+    "/graphql",
+    "/graphql/",
+    "/graphiql",
+    "/graphql/console",
+    "/api/graphql",
+    "/api/v1/graphql",
+    "/v1/graphql",
+    "/query",
+    "/gql",
+    "/playground",
 ]
 
 # Dangerous operations to flag
 SENSITIVE_FIELDS = [
-    "password", "token", "secret", "apikey", "api_key", "credential",
-    "ssn", "credit_card", "creditcard", "bank", "salary",
-    "admin", "role", "permission", "delete", "drop", "reset",
+    "password",
+    "token",
+    "secret",
+    "apikey",
+    "api_key",
+    "credential",
+    "ssn",
+    "credit_card",
+    "creditcard",
+    "bank",
+    "salary",
+    "admin",
+    "role",
+    "permission",
+    "delete",
+    "drop",
+    "reset",
 ]
 
 
@@ -51,10 +72,12 @@ def _find_graphql_endpoint(base_url: str) -> str | None:
         url = base + path
         try:
             resp = retry_request(
-                url, method="POST",
+                url,
+                method="POST",
                 headers={**stealth_headers(), "Content-Type": "application/json"},
                 json={"query": "{__typename}"},
-                timeout=8, max_retries=1,
+                timeout=8,
+                max_retries=1,
             )
             if resp.status_code == 200:
                 try:
@@ -73,7 +96,8 @@ def _run_introspection(endpoint: str) -> dict | None:
     stealth_delay()
     try:
         resp = retry_request(
-            endpoint, method="POST",
+            endpoint,
+            method="POST",
             headers={**stealth_headers(), "Content-Type": "application/json"},
             json={"query": INTROSPECTION_QUERY},
             timeout=15,
@@ -108,9 +132,10 @@ def run(target: str, endpoint: str = "", depth: str = "full") -> str:
         stealth_delay()
         try:
             resp = retry_request(
-                gql_url, method="POST",
+                gql_url,
+                method="POST",
                 headers={**stealth_headers(), "Content-Type": "application/json"},
-                json={"query": "{__type(name:\"Query\"){name fields{name}}}"},
+                json={"query": '{__type(name:"Query"){name fields{name}}}'},
                 timeout=10,
             )
             data = resp.json()
@@ -119,7 +144,9 @@ def run(target: str, endpoint: str = "", depth: str = "full") -> str:
         except Exception:
             pass
 
-        return f"GraphQL scan — {len(findings)} findings:\n" + "\n".join(f"  {f}" for f in findings)
+        return f"GraphQL scan — {len(findings)} findings:\n" + "\n".join(
+            f"  {f}" for f in findings
+        )
 
     findings.append("[HIGH] Introspection is ENABLED — full schema exposed")
 
@@ -132,7 +159,9 @@ def run(target: str, endpoint: str = "", depth: str = "full") -> str:
     user_types = [t for t in types if not t["name"].startswith("__")]
     object_types = [t for t in user_types if t["kind"] == "OBJECT"]
 
-    findings.append(f"[INFO] Schema: {len(user_types)} types, {len(object_types)} objects")
+    findings.append(
+        f"[INFO] Schema: {len(user_types)} types, {len(object_types)} objects"
+    )
     if mutation_type:
         findings.append(f"[MEDIUM] Mutations available (type: {mutation_type})")
 
@@ -150,14 +179,16 @@ def run(target: str, endpoint: str = "", depth: str = "full") -> str:
         if len(queries) > 15:
             findings.append(f"  ... +{len(queries) - 15} more")
     if mutations:
-        findings.append(f"[MEDIUM] Mutations ({len(mutations)}): {', '.join(mutations[:15])}")
+        findings.append(
+            f"[MEDIUM] Mutations ({len(mutations)}): {', '.join(mutations[:15])}"
+        )
         if len(mutations) > 15:
             findings.append(f"  ... +{len(mutations) - 15} more")
 
     # Check for sensitive fields
     sensitive_found = []
     for t in object_types:
-        for field in (t.get("fields") or []):
+        for field in t.get("fields") or []:
             fname = field["name"].lower()
             for keyword in SENSITIVE_FIELDS:
                 if keyword in fname:
@@ -175,7 +206,9 @@ def run(target: str, endpoint: str = "", depth: str = "full") -> str:
     dangerous_mutations = []
     for m in mutations:
         ml = m.lower()
-        if any(kw in ml for kw in ("delete", "remove", "drop", "reset", "admin", "role")):
+        if any(
+            kw in ml for kw in ("delete", "remove", "drop", "reset", "admin", "role")
+        ):
             dangerous_mutations.append(m)
 
     if dangerous_mutations:
@@ -190,9 +223,14 @@ def run(target: str, endpoint: str = "", depth: str = "full") -> str:
     except Exception:
         pass
 
-    result = f"GraphQL scan — {len(findings)} findings:\n" + "\n".join(f"  {f}" for f in findings)
+    result = f"GraphQL scan — {len(findings)} findings:\n" + "\n".join(
+        f"  {f}" for f in findings
+    )
     if len(result) > 5000:
-        result = result[:5000] + "\n... (use read_log 'graphql_schema.json' to see full schema)"
+        result = (
+            result[:5000]
+            + "\n... (use read_log 'graphql_schema.json' to see full schema)"
+        )
     return result
 
 
@@ -207,8 +245,14 @@ TOOL_SPEC = {
         "type": "object",
         "properties": {
             "target": {"type": "string", "description": "Base URL of the target"},
-            "endpoint": {"type": "string", "description": "Exact GraphQL endpoint URL (optional)"},
-            "depth": {"type": "string", "description": "Scan depth: quick or full (default: full)"},
+            "endpoint": {
+                "type": "string",
+                "description": "Exact GraphQL endpoint URL (optional)",
+            },
+            "depth": {
+                "type": "string",
+                "description": "Scan depth: quick or full (default: full)",
+            },
         },
         "required": ["target"],
     },

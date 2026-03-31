@@ -70,7 +70,9 @@ def test_build_prompt_structure():
 
 
 def test_build_prompt_with_tool_results():
-    cm = ContextManager("{tool_list}{state_summary}{graph_summary}{hypotheses}{last_plan}")
+    cm = ContextManager(
+        "{tool_list}{state_summary}{graph_summary}{hypotheses}{last_plan}"
+    )
     state = AttackState(turn=1)
 
     results = [{"tool": "nmap", "output": "80/tcp open http"}]
@@ -87,7 +89,9 @@ def test_build_prompt_with_tool_results():
 
 
 def test_build_prompt_no_tool_results():
-    cm = ContextManager("{tool_list}{state_summary}{graph_summary}{hypotheses}{last_plan}")
+    cm = ContextManager(
+        "{tool_list}{state_summary}{graph_summary}{hypotheses}{last_plan}"
+    )
     state = AttackState(turn=1)
 
     messages = cm.build_prompt(
@@ -107,13 +111,27 @@ def test_build_prompt_no_tool_results():
 
 
 def test_hypotheses_rendering():
-    cm = ContextManager("{tool_list}{state_summary}{graph_summary}{hypotheses}{last_plan}")
+    cm = ContextManager(
+        "{tool_list}{state_summary}{graph_summary}{hypotheses}{last_plan}"
+    )
     state = AttackState(
         turn=5,
         hypotheses=[
-            Hypothesis(id="h1", statement="Outdated Apache", confidence=HypothesisConfidence.PROBABLE),
-            Hypothesis(id="h2", statement="Disproved", confidence=HypothesisConfidence.DISPROVED),
-            Hypothesis(id="h3", statement="Confirmed", confidence=HypothesisConfidence.CONFIRMED),
+            Hypothesis(
+                id="h1",
+                statement="Outdated Apache",
+                confidence=HypothesisConfidence.PROBABLE,
+            ),
+            Hypothesis(
+                id="h2",
+                statement="Disproved",
+                confidence=HypothesisConfidence.DISPROVED,
+            ),
+            Hypothesis(
+                id="h3",
+                statement="Confirmed",
+                confidence=HypothesisConfidence.CONFIRMED,
+            ),
         ],
     )
 

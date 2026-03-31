@@ -43,13 +43,24 @@ class TestOpenAIConversion:
 
         messages = [
             {"role": "user", "content": "Hello"},
-            {"role": "assistant", "content": [
-                {"type": "text", "text": "I'll help"},
-                {"type": "tool_use", "id": "tc1", "name": "test_tool", "input": {"target": "x"}},
-            ]},
-            {"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": "tc1", "content": "result"},
-            ]},
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "I'll help"},
+                    {
+                        "type": "tool_use",
+                        "id": "tc1",
+                        "name": "test_tool",
+                        "input": {"target": "x"},
+                    },
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "tool_result", "tool_use_id": "tc1", "content": "result"},
+                ],
+            },
         ]
         converted = provider._to_provider_messages(messages, "system")
         # First message is the system prompt injected by the provider
@@ -61,9 +72,12 @@ class TestOpenAIConversion:
 class TestGeminiConversion:
     def test_type_mapping(self):
         """Verify types are mapped correctly (not all STRING)."""
-        with patch.dict(sys.modules, {"google": MagicMock(), "google.genai": MagicMock()}):
+        with patch.dict(
+            sys.modules, {"google": MagicMock(), "google.genai": MagicMock()}
+        ):
             # Re-import with mocked google
             from providers.gemini_provider import _TYPE_MAP
+
             assert len(_TYPE_MAP) >= 5  # string, integer, number, boolean, array
 
 
@@ -75,6 +89,7 @@ class TestMistralConversion:
             if "providers.mistral_provider" in sys.modules:
                 del sys.modules["providers.mistral_provider"]
             from providers.mistral_provider import MistralProvider
+
             provider = MistralProvider(api_key="test", model="mistral-large")
 
         converted = provider.convert_tools([SAMPLE_TOOL])
@@ -85,6 +100,7 @@ class TestMistralConversion:
 class TestValidationUtils:
     def test_validate_url(self):
         from utils.validation import validate_url
+
         assert validate_url("https://example.com") is True
         assert validate_url("http://test.com/path?q=1") is True
         assert validate_url("not-a-url") is False
@@ -92,6 +108,7 @@ class TestValidationUtils:
 
     def test_validate_domain(self):
         from utils.validation import validate_domain
+
         assert validate_domain("example.com") is True
         assert validate_domain("sub.example.com") is True
         assert validate_domain("not valid") is False
@@ -99,6 +116,7 @@ class TestValidationUtils:
 
     def test_validate_ip(self):
         from utils.validation import validate_ip
+
         assert validate_ip("192.168.1.1") is True
         assert validate_ip("::1") is True
         assert validate_ip("999.999.999.999") is False
@@ -106,6 +124,7 @@ class TestValidationUtils:
 
     def test_sanitize_target(self):
         from utils.validation import sanitize_target
+
         assert sanitize_target("  example.com  ") == "example.com"
         with pytest.raises(ValueError):
             sanitize_target("example.com; rm -rf /")
@@ -114,5 +133,6 @@ class TestValidationUtils:
 
     def test_safe_filename(self):
         from utils.validation import safe_filename
+
         assert safe_filename("report.html") == "report.html"
         assert safe_filename("../../etc/passwd") == ".._.._etc_passwd"

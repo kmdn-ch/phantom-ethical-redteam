@@ -10,7 +10,8 @@ def _list_available_templates() -> list[str]:
     if not os.path.isdir(ZPHISHER_DIR):
         return []
     return sorted(
-        d for d in os.listdir(ZPHISHER_DIR)
+        d
+        for d in os.listdir(ZPHISHER_DIR)
         if os.path.isdir(os.path.join(ZPHISHER_DIR, d))
     )
 
@@ -20,12 +21,18 @@ def run(target: str, template: str = "instagram") -> str:
         templates = _list_available_templates()
         if not templates:
             return f"No Zphisher templates found. Directory: {ZPHISHER_DIR}"
-        return "Available Zphisher templates:\n" + "\n".join(f"  - {t}" for t in templates)
+        return "Available Zphisher templates:\n" + "\n".join(
+            f"  - {t}" for t in templates
+        )
 
     template_path = os.path.join(ZPHISHER_DIR, template)
     if not os.path.isdir(template_path):
         available = _list_available_templates()
-        hint = f" Available: {', '.join(available)}" if available else " Run installer to download templates."
+        hint = (
+            f" Available: {', '.join(available)}"
+            if available
+            else " Run installer to download templates."
+        )
         return f"Template '{template}' not found.{hint}"
 
     login_file = os.path.join(template_path, "login.html")

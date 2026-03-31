@@ -1,7 +1,12 @@
 """Core data models and event system for Phantom v3."""
 
 from agent.models.events import Event, EventBus, EventType, Severity
-from agent.models.state import InvalidTransition, MissionPhase, MissionState, VALID_TRANSITIONS
+from agent.models.state import (
+    InvalidTransition,
+    MissionPhase,
+    MissionState,
+    VALID_TRANSITIONS,
+)
 from agent.models.findings import (
     ActionRecord,
     Finding,

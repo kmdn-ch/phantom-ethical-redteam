@@ -27,7 +27,13 @@ from agent.models.findings import (
     TargetInfo,
 )
 from agent.models.graph import AttackGraph, EdgeType, GraphEdge, GraphNode, NodeType
-from agent.models.plans import ActionStatus, AttackAction, AttackPlan, AttackState, PlanStatus
+from agent.models.plans import (
+    ActionStatus,
+    AttackAction,
+    AttackPlan,
+    AttackState,
+    PlanStatus,
+)
 from agent.models.state import MissionPhase, MissionState
 from agent.providers.base import BaseLLMProvider
 
@@ -43,8 +49,12 @@ _SEVERITY_RE = re.compile(
     re.IGNORECASE,
 )
 
+ROOT = Path(__file__).parent.parent
+
 # Default configuration values
-_DEFAULT_MAX_TURNS = 80
+_DEFAULT_MAX_TURNS = (
+    100  # ~2-4 hours on a complex target; sufficient for full assessment
+)
 _DEFAULT_MAX_PARALLEL = 4
 _DEFAULT_STRATEGIST_INTERVAL = 5
 _DEFAULT_REFLECT_INTERVAL = 3
@@ -76,9 +86,15 @@ class Orchestrator:
         self.config = config
         self.max_turns: int = config.get("max_turns", _DEFAULT_MAX_TURNS)
         self.max_parallel: int = config.get("max_parallel_tools", _DEFAULT_MAX_PARALLEL)
-        self.strategist_interval: int = config.get("strategist_interval", _DEFAULT_STRATEGIST_INTERVAL)
-        self.reflect_interval: int = config.get("reflect_interval", _DEFAULT_REFLECT_INTERVAL)
-        self.compact_max_chars: int = config.get("compact_max_chars", _DEFAULT_COMPACT_MAX_CHARS)
+        self.strategist_interval: int = config.get(
+            "strategist_interval", _DEFAULT_STRATEGIST_INTERVAL
+        )
+        self.reflect_interval: int = config.get(
+            "reflect_interval", _DEFAULT_REFLECT_INTERVAL
+        )
+        self.compact_max_chars: int = config.get(
+            "compact_max_chars", _DEFAULT_COMPACT_MAX_CHARS
+        )
         self.session_dir: str = config.get("session_dir", "")
         self.mission_id: str = config.get("mission_id", "")
 
@@ -90,7 +106,9 @@ class Orchestrator:
 
         # ------ Reasoning components (lazy-imported to tolerate missing modules) ------
         self._planner = self._safe_import_component("PlanningLayer")
-        self._reflector = self._safe_import_component("ReflectionLayer", self.reflect_interval)
+        self._reflector = self._safe_import_component(
+            "ReflectionLayer", self.reflect_interval
+        )
         self._strategist = self._safe_import_component("Strategist")
         self._context_manager = self._init_context_manager()
 
@@ -110,6 +128,18 @@ class Orchestrator:
         # findings and hypotheses tracked separately from AttackState (plans only)
         self._findings: list[dict] = []
         self._hypotheses: list[dict] = []
+
+        # ------ Hypothesis engine (priority-queue driven attack scheduling) ------
+        try:
+            from agent.reasoning.hypothesis_engine import HypothesisEngine
+
+            self._hypothesis_engine: Optional[Any] = HypothesisEngine(
+                dry_round_threshold=config.get("dry_round_threshold", 5),
+                max_wall_seconds=config.get("max_wall_seconds", None),
+            )
+        except Exception as exc:
+            logger.warning("HypothesisEngine not available: %s", exc)
+            self._hypothesis_engine = None
 
         # ------ Mission state machine ------
         self.mission_state = MissionState(mission_id=self.mission_id)
@@ -146,6 +176,7 @@ class Orchestrator:
         """Initialize ContextManager with the loaded system prompt template."""
         try:
             from agent.reasoning.context_manager import ContextManager
+
             provider_name = self.config.get("provider", "ollama")
             return ContextManager(
                 system_prompt_template=self._system_prompt_template,
@@ -169,6 +200,7 @@ class Orchestrator:
     def _safe_import_persistence() -> Any:
         try:
             from agent.memory.persistence import MissionDB
+
             return MissionDB
         except (ImportError, AttributeError) as exc:
             logger.warning("MissionDB not available: %s", exc)
@@ -178,6 +210,7 @@ class Orchestrator:
     def _safe_import_timeline() -> Any:
         try:
             from agent.memory.timeline import TimelineBuilder
+
             return TimelineBuilder()
         except (ImportError, AttributeError) as exc:
             logger.warning("TimelineBuilder not available: %s", exc)
@@ -187,6 +220,7 @@ class Orchestrator:
         """Load the tool registry -- isolated to handle import errors gracefully."""
         try:
             from agent.tools import ALL_TOOLS, get_tool_mapping
+
             self._tool_specs = ALL_TOOLS
             self._tool_registry = get_tool_mapping()
         except ImportError as exc:
@@ -195,7 +229,9 @@ class Orchestrator:
     def _load_system_prompt(self) -> str:
         """Load the v3 system prompt template from disk."""
         candidates = [
-            os.path.join(os.path.dirname(__file__), "..", "prompts", "system_prompt_v3.txt"),
+            os.path.join(
+                os.path.dirname(__file__), "..", "prompts", "system_prompt_v3.txt"
+            ),
             os.path.join("prompts", "system_prompt_v3.txt"),
         ]
         for path in candidates:
@@ -257,6 +293,10 @@ class Orchestrator:
         lines = [f"Turn: {self._turn}/{self.max_turns}"]
         lines.append(f"Phase: {self.mission_state.phase.value}")
 
+        # Hypothesis engine queue status
+        if self._hypothesis_engine is not None:
+            lines.append(self._hypothesis_engine.to_prompt_summary(max_items=5))
+
         findings_count = len(self._findings)
         if findings_count:
             lines.append(f"Findings: {findings_count} total")
@@ -266,7 +306,9 @@ class Orchestrator:
                 lines.append(f"  [{sev}] {title}")
 
         if getattr(self.attack_state, "target_model", None):
-            lines.append(f"Targets: {json.dumps(self.attack_state.target_model, separators=(',', ':'))}")
+            lines.append(
+                f"Targets: {json.dumps(self.attack_state.target_model, separators=(',', ':'))}"
+            )
 
         return "\n".join(lines)
 
@@ -340,7 +382,10 @@ class Orchestrator:
             A debrief dict containing timeline, graph, findings, and report path.
         """
         self._install_signal_handler()
-        self._emit_event(EventType.SESSION_START, reasoning=f"Mission started with targets: {scope_targets}")
+        self._emit_event(
+            EventType.SESSION_START,
+            reasoning=f"Mission started with targets: {scope_targets}",
+        )
 
         # Transition to RECON phase
         try:
@@ -379,8 +424,34 @@ class Orchestrator:
                 if self._turn % self.strategist_interval == 0:
                     self._run_strategist()
 
-                # Check mission completion
+                # Feed new findings back into the hypothesis engine
+                if self._hypothesis_engine is not None and self._findings:
+                    new_this_turn = self._findings[-(len(tool_calls) or 1) :]
+                    for f in new_this_turn:
+                        ftype = f.get("category", f.get("type", "general"))
+                        title = f.get("title", "")
+                        # Auto-generate follow-up hypotheses from findings
+                        self._hypothesis_engine.add_hypothesis(
+                            statement=f"Follow-up on: {title[:100]}",
+                            priority={
+                                "critical": 1.0,
+                                "high": 0.85,
+                                "medium": 0.65,
+                                "low": 0.4,
+                                "info": 0.25,
+                            }.get(str(f.get("severity", "info")).lower(), 0.5),
+                            category=ftype,
+                        )
+
+                # Check mission completion (also check hypothesis engine exhaustion)
                 if self._check_mission_complete():
+                    self._mission_complete = True
+                elif (
+                    self._hypothesis_engine is not None
+                    and self._hypothesis_engine.is_exhausted()
+                    and self._turn > 5
+                ):
+                    logger.info("Mission complete: hypothesis engine exhausted")
                     self._mission_complete = True
 
                 # Persist state after every turn
@@ -403,12 +474,63 @@ class Orchestrator:
         return self._debrief()
 
     def _build_initial_message(self, scope_targets: list[str]) -> str:
-        """Build the initial user message with scope targets."""
+        """Build the initial user message — loads prompts/initial_mission.txt if available."""
         targets_str = "\n".join(f"  - {t}" for t in scope_targets)
+
+        # Seed hypothesis engine with broad initial attack surface
+        if self._hypothesis_engine is not None:
+            for target in scope_targets:
+                self._hypothesis_engine.add_hypothesis(
+                    f"Enumerate all open ports and services on {target}",
+                    priority=0.9,
+                    category="recon",
+                )
+                self._hypothesis_engine.add_hypothesis(
+                    f"Identify web technologies and frameworks on {target}",
+                    priority=0.85,
+                    category="recon",
+                )
+                self._hypothesis_engine.add_hypothesis(
+                    f"Discover exposed admin/config/debug endpoints on {target}",
+                    priority=0.9,
+                    category="exposure",
+                )
+                self._hypothesis_engine.add_hypothesis(
+                    f"Test for injection vulnerabilities (SQLi, SSTI, SSRF, CMDi) on {target}",
+                    priority=0.95,
+                    category="injection",
+                )
+                self._hypothesis_engine.add_hypothesis(
+                    f"Check for information disclosure (.env, .git, swagger, backup files) on {target}",
+                    priority=0.88,
+                    category="exposure",
+                )
+                self._hypothesis_engine.add_hypothesis(
+                    f"Test authentication surfaces for default credentials and bypass on {target}",
+                    priority=0.92,
+                    category="auth",
+                )
+
+        # Try to load prompts/initial_mission.txt for richly formatted seed
+        mission_prompt_path = ROOT / "prompts" / "initial_mission.txt"
+        if mission_prompt_path.exists():
+            template = mission_prompt_path.read_text(encoding="utf-8")
+            return template.format(
+                scope=targets_str,
+                entry_points="(to be discovered — start broad)",
+                objective="Find exploitable vulnerabilities and build attack chains to maximum impact",
+                out_of_scope="Everything not listed in the authorized scope above",
+            )
+
+        # Fallback: inline aggressive seed
         return (
-            f"Mission scope targets:\n{targets_str}\n\n"
-            "Assess these targets. Create an initial plan, form hypotheses, "
-            "and begin reconnaissance. You have full autonomy within scope."
+            f"AUTHORIZED SCOPE:\n{targets_str}\n\n"
+            "You are an autonomous attacker. Do NOT follow a linear recon → scan → exploit sequence.\n"
+            "Form AT LEAST 5 concurrent attack hypotheses NOW, covering different vectors.\n"
+            "Create a multi-vector plan immediately — pursue web, auth, and injection vectors in parallel.\n"
+            "When you find something critical: exploit immediately. Do not wait.\n"
+            "forge_tool is your weapon when built-in tools are insufficient — use it aggressively.\n\n"
+            "Think like an attacker. Act like one. Go."
         )
 
     # ------------------------------------------------------------------
@@ -428,7 +550,9 @@ class Orchestrator:
         if self._reflector is not None:
             try:
                 if self._reflector.should_reflect(self.attack_state):
-                    reflection_prompt = self._reflector.build_reflection_prompt(self.attack_state)
+                    reflection_prompt = self._reflector.build_reflection_prompt(
+                        self.attack_state
+                    )
                     system_prompt += "\n\n" + reflection_prompt
             except Exception as exc:
                 logger.debug("Reflector.should_reflect failed: %s", exc)
@@ -460,12 +584,14 @@ class Orchestrator:
         for text in text_blocks:
             assistant_blocks.append({"type": "text", "text": text})
         for tc in tool_calls:
-            assistant_blocks.append({
-                "type": "tool_use",
-                "id": tc["id"],
-                "name": tc["name"],
-                "input": tc["input"],
-            })
+            assistant_blocks.append(
+                {
+                    "type": "tool_use",
+                    "id": tc["id"],
+                    "name": tc["name"],
+                    "input": tc["input"],
+                }
+            )
 
         if assistant_blocks:
             self._messages.append({"role": "assistant", "content": assistant_blocks})
@@ -493,7 +619,7 @@ class Orchestrator:
             r'<plan_create\s+objective="([^"]+)"'
             r'(?:\s+priority="([^"]*)")?'
             r'(?:\s+hypothesis="([^"]*)")?'
-            r'>(.*?)</plan_create>',
+            r">(.*?)</plan_create>",
             llm_text,
             re.DOTALL,
         ):
@@ -531,7 +657,9 @@ class Orchestrator:
                 prev_action_id = action.id
 
             self.attack_state.plans.append(plan)
-            logger.info("Plan created: [%s] %s (pri=%.1f)", plan.id, objective, priority)
+            logger.info(
+                "Plan created: [%s] %s (pri=%.1f)", plan.id, objective, priority
+            )
 
         # Parse <plan_update> blocks
         for match in re.finditer(
@@ -616,9 +744,7 @@ class Orchestrator:
             return []
 
         tool_names = [tc["name"] for tc in tool_calls]
-        logger.info(
-            "Executing %d tool(s): %s", len(tool_calls), tool_names
-        )
+        logger.info("Executing %d tool(s): %s", len(tool_calls), tool_names)
         print(f"  >> Running: {', '.join(tool_names)}")
 
         results = self._execute_tools_parallel(tool_calls)
@@ -735,8 +861,11 @@ class Orchestrator:
             content = str(tr.get("content", ""))
             tool_name = tc["name"]
 
-            # Extract findings from raw output using severity regex
+            # Extract findings: severity-tagged lines + tool-native formats
             findings = self._extract_findings(content, tool_name, tc.get("input", {}))
+            findings += self._extract_findings_from_tool_output(
+                content, tool_name, tc.get("input", {})
+            )
 
             # Record action in attack state
             action_record = {
@@ -766,7 +895,9 @@ class Orchestrator:
                     logger.debug("MissionMemory update failed: %s", exc)
 
             # Update attack graph with discovered entities
-            self._update_graph_from_results(tool_name, tc.get("input", {}), content, findings)
+            self._update_graph_from_results(
+                tool_name, tc.get("input", {}), content, findings
+            )
 
             # Add findings to attack state for context injection
             for finding in findings:
@@ -815,10 +946,120 @@ class Orchestrator:
                 # Emit finding event
                 self._emit_event(
                     EventType.FINDING_DISCOVERED,
-                    severity=Severity(severity) if severity in Severity.__members__ else Severity.INFO,
+                    severity=Severity(severity)
+                    if severity in Severity.__members__
+                    else Severity.INFO,
                     target=target,
                     title=title,
                     evidence=line.strip()[:500],
+                    tool_name=tool_name,
+                )
+
+        return findings
+
+    def _extract_findings_from_tool_output(
+        self, content: str, tool_name: str, tool_input: dict
+    ) -> list[Finding]:
+        """Extract findings from real tool output formats (nmap, nuclei, whatweb, ffuf).
+
+        Complements the severity-tag regex in ``_extract_findings`` by recognising
+        the native output patterns produced by common security tools.
+        """
+        findings: list[Finding] = []
+        target = tool_input.get("target", tool_input.get("url", ""))
+
+        for line in content.splitlines():
+            line_stripped = line.strip()
+            if not line_stripped:
+                continue
+
+            severity: Optional[str] = None
+            title: Optional[str] = None
+
+            # ----------------------------------------------------------
+            # Generic: any line containing a CVE identifier -> HIGH
+            # ----------------------------------------------------------
+            if re.search(r"CVE-\d{4}-\d+", line_stripped, re.IGNORECASE):
+                cve_id = re.search(r"CVE-\d{4}-\d+", line_stripped, re.IGNORECASE)
+                severity = "high"
+                title = f"CVE reference: {cve_id.group(0)} — {line_stripped[:100]}"
+
+            # ----------------------------------------------------------
+            # nmap: lines with "open" or "filtered" port info
+            # ----------------------------------------------------------
+            elif tool_name in ("run_nmap", "nmap") or "nmap" in tool_name.lower():
+                nmap_match = re.match(
+                    r"(\d+)/(?:tcp|udp)\s+(open|filtered)\s+(\S+)", line_stripped
+                )
+                if nmap_match:
+                    port, state_str, service = (
+                        nmap_match.group(1),
+                        nmap_match.group(2),
+                        nmap_match.group(3),
+                    )
+                    severity = "info"
+                    title = f"Port {port} {state_str}: {service}"
+
+            # ----------------------------------------------------------
+            # nuclei: lines starting with "[" that contain a severity word
+            # ----------------------------------------------------------
+            elif tool_name in ("run_nuclei", "nuclei") or "nuclei" in tool_name.lower():
+                nuclei_sev = re.search(
+                    r"\[(critical|high|medium|low|info)\]", line_stripped, re.IGNORECASE
+                )
+                if nuclei_sev and line_stripped.startswith("["):
+                    sev_word = nuclei_sev.group(1).lower()
+                    severity = sev_word
+                    # Strip severity tag to form a clean title
+                    title = re.sub(
+                        r"\[(critical|high|medium|low|info)\]",
+                        "",
+                        line_stripped,
+                        flags=re.IGNORECASE,
+                    ).strip()[:120]
+
+            # ----------------------------------------------------------
+            # whatweb: any non-empty output line with a version or technology
+            # ----------------------------------------------------------
+            elif (
+                tool_name in ("run_whatweb", "whatweb")
+                or "whatweb" in tool_name.lower()
+            ):
+                if re.search(
+                    r"[A-Za-z][\w.-]+(?:\s+\[[\d.]+\]|\s+\d[\d.]+)", line_stripped
+                ):
+                    severity = "info"
+                    title = f"Technology detected: {line_stripped[:120]}"
+
+            # ----------------------------------------------------------
+            # ffuf: lines with HTTP status 200, 301, or 302
+            # ----------------------------------------------------------
+            elif tool_name in ("run_ffuf", "ffuf") or "ffuf" in tool_name.lower():
+                ffuf_match = re.search(
+                    r"\[Status:\s*(200|301|302)\b", line_stripped
+                ) or re.search(r"\b(200|301|302)\b.*\bSize:", line_stripped)
+                if ffuf_match:
+                    severity = "info"
+                    title = f"Path discovered: {line_stripped[:120]}"
+
+            if severity and title:
+                finding = Finding(
+                    severity=severity,
+                    category=self._infer_category(title, tool_name),
+                    title=title,
+                    target=target,
+                    evidence=line_stripped[:500],
+                    tool_source=tool_name,
+                )
+                findings.append(finding)
+                self._emit_event(
+                    EventType.FINDING_DISCOVERED,
+                    severity=Severity(severity)
+                    if severity in Severity.__members__
+                    else Severity.INFO,
+                    target=target,
+                    title=title,
+                    evidence=line_stripped[:500],
                     tool_name=tool_name,
                 )
 
@@ -838,7 +1079,9 @@ class Orchestrator:
             return "credential"
         if any(kw in title_lower for kw in ("misconfig", "misconfiguration", "header")):
             return "misconfig"
-        if any(kw in title_lower for kw in ("exposure", "leak", "backup", "disclosure")):
+        if any(
+            kw in title_lower for kw in ("exposure", "leak", "backup", "disclosure")
+        ):
             return "exposure"
         return "general"
 
@@ -902,6 +1145,63 @@ class Orchestrator:
         logger.info("Reflection triggered at turn %d", self._turn)
         self._emit_event(EventType.DECISION, reasoning="Reflection phase triggered")
 
+        # Extract the most recent assistant text from conversation history
+        last_assistant_text = ""
+        for msg in reversed(self._messages):
+            if msg.get("role") == "assistant":
+                content = msg.get("content", "")
+                if isinstance(content, list):
+                    for block in content:
+                        if isinstance(block, dict) and block.get("type") == "text":
+                            last_assistant_text = block.get("text", "")
+                            break
+                elif isinstance(content, str):
+                    last_assistant_text = content
+                break
+
+        # Parse any <reflection> block the LLM already embedded in its response
+        if last_assistant_text:
+            reflection = self._parse_reflection_block(last_assistant_text)
+            if reflection:
+                self._apply_reflection(reflection)
+                logger.info(
+                    "Reflection applied: decision=%s approach_effective=%s",
+                    reflection.get("decision", "continue"),
+                    reflection.get("approach_effective", "?"),
+                )
+
+        # Delegate full reflection cycle to the ReflectionLayer if possible
+        if hasattr(self._reflector, "reflect"):
+            try:
+                # Build a compact tool_results list from recent messages for context
+                recent_tool_results: list[dict] = []
+                for msg in self._messages[-6:]:
+                    if msg.get("role") == "user" and isinstance(
+                        msg.get("content"), list
+                    ):
+                        for block in msg["content"]:
+                            if (
+                                isinstance(block, dict)
+                                and block.get("type") == "tool_result"
+                            ):
+                                recent_tool_results.append(
+                                    {
+                                        "tool": "tool",
+                                        "content": str(block.get("content", ""))[:300],
+                                    }
+                                )
+                result = self._reflector.reflect(
+                    recent_tool_results, self.attack_state, self.event_bus
+                )
+                if result:
+                    logger.info(
+                        "ReflectionLayer decision: %s | next: %s",
+                        result.get("decision", "continue"),
+                        result.get("next_priority", ""),
+                    )
+            except Exception as exc:
+                logger.debug("ReflectionLayer.reflect failed: %s", exc)
+
     def _parse_reflection_block(self, text: str) -> Optional[dict]:
         """Extract <reflection> block from LLM output."""
         match = re.search(r"<reflection>(.*?)</reflection>", text, re.DOTALL)
@@ -956,9 +1256,43 @@ class Orchestrator:
 
         logger.info("Strategist analysis at turn %d", self._turn)
         try:
-            self._strategist.analyze(self.attack_state, self.attack_graph)
+            attack_graph_dict = self.attack_graph.to_dict()
+            memory_dict: dict = {}
+            if self._mission_memory is not None:
+                try:
+                    memory_dict = self._mission_memory.to_dict()
+                except Exception:
+                    memory_dict = {}
+
+            objectives = self._strategist.suggest_next_objective(
+                self.attack_state, attack_graph_dict, memory_dict
+            )
+
+            # Inject top-2 high-priority objectives as user messages for the LLM
+            injected = 0
+            for obj in objectives[:2]:
+                if obj.get("priority", 0) > 0.7:
+                    tools_str = ", ".join(obj.get("suggested_tools", []))
+                    msg_content = (
+                        f"[STRATEGIST] Priority objective: {obj['objective']}\n"
+                        f"Rationale: {obj.get('rationale', '')}\n"
+                        f"Suggested tools: {tools_str}"
+                    )
+                    self._messages.append({"role": "user", "content": msg_content})
+                    logger.info(
+                        "Strategist injected objective (pri=%.2f): %s",
+                        obj["priority"],
+                        obj["objective"],
+                    )
+                    injected += 1
+
+            if not injected:
+                logger.info(
+                    "Strategist found %d objective(s); none exceeded priority threshold 0.7",
+                    len(objectives),
+                )
         except Exception as exc:
-            logger.debug("Strategist.analyze failed: %s", exc)
+            logger.debug("Strategist failed: %s", exc)
 
     # ------------------------------------------------------------------
     # Mission completion check
@@ -978,10 +1312,14 @@ class Orchestrator:
             if h.confidence
             in (HypothesisConfidence.SPECULATIVE, HypothesisConfidence.PROBABLE)
         ]
-        all_plans_done = all(
-            p.status in (PlanStatus.COMPLETED, PlanStatus.ABANDONED)
-            for p in self.attack_state.plans
-        ) if self.attack_state.plans else False
+        all_plans_done = (
+            all(
+                p.status in (PlanStatus.COMPLETED, PlanStatus.ABANDONED)
+                for p in self.attack_state.plans
+            )
+            if self.attack_state.plans
+            else False
+        )
 
         if all_plans_done and not untested and self._turn > 5:
             logger.info("Mission complete: all plans resolved and hypotheses tested")
@@ -1080,9 +1418,11 @@ class Orchestrator:
         print(f"  Turns: {self._turn}")
         print(f"  Findings: {len(self._findings)}")
         print(f"  Attack chains: {len(chains)}")
-        print(f"  Plans: {len(self.attack_state.plans)} "
-              f"({sum(1 for p in self.attack_state.plans if p.status == PlanStatus.COMPLETED)} completed, "
-              f"{sum(1 for p in self.attack_state.plans if p.status == PlanStatus.ABANDONED)} abandoned)")
+        print(
+            f"  Plans: {len(self.attack_state.plans)} "
+            f"({sum(1 for p in self.attack_state.plans if p.status == PlanStatus.COMPLETED)} completed, "
+            f"{sum(1 for p in self.attack_state.plans if p.status == PlanStatus.ABANDONED)} abandoned)"
+        )
         print(f"{'=' * 60}\n")
 
         return debrief

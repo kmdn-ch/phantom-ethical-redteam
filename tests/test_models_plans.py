@@ -103,7 +103,9 @@ def test_next_action_skips_done():
 
 def test_next_action_respects_dependencies():
     a1 = AttackAction(id="a1", priority=0.5, status=ActionStatus.PENDING)
-    a2 = AttackAction(id="a2", priority=0.9, depends_on=["a1"], status=ActionStatus.PENDING)
+    a2 = AttackAction(
+        id="a2", priority=0.9, depends_on=["a1"], status=ActionStatus.PENDING
+    )
     plan = AttackPlan(objective="test", actions=[a1, a2], priority=1.0)
     state = AttackState(plans=[plan])
 
@@ -116,7 +118,9 @@ def test_next_action_respects_dependencies():
 
 def test_next_action_dependency_met():
     a1 = AttackAction(id="a1", priority=0.5, status=ActionStatus.DONE)
-    a2 = AttackAction(id="a2", priority=0.9, depends_on=["a1"], status=ActionStatus.PENDING)
+    a2 = AttackAction(
+        id="a2", priority=0.9, depends_on=["a1"], status=ActionStatus.PENDING
+    )
     plan = AttackPlan(objective="test", actions=[a1, a2], priority=1.0)
     state = AttackState(plans=[plan])
 

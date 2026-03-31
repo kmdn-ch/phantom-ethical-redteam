@@ -62,11 +62,11 @@ def load_scope_targets(scope_file: str = "scopes/current_scope.md") -> list:
                 targets.append(netloc.lower().split(":")[0])
 
         # Extract CIDRs (e.g. 192.168.1.0/24)
-        for cidr in re.findall(r'\b(?:\d{1,3}\.){3}\d{1,3}/\d+\b', line):
+        for cidr in re.findall(r"\b(?:\d{1,3}\.){3}\d{1,3}/\d+\b", line):
             targets.append(cidr)
 
         # Extract bare IPs (not part of CIDR)
-        for ip in re.findall(r'\b(?:\d{1,3}\.){3}\d{1,3}\b(?!/)', line):
+        for ip in re.findall(r"\b(?:\d{1,3}\.){3}\d{1,3}\b(?!/)", line):
             if ip not in targets:
                 targets.append(ip)
 
@@ -76,7 +76,9 @@ def load_scope_targets(scope_file: str = "scopes/current_scope.md") -> list:
 def _ip_in_cidr(ip_str: str, cidr_str: str) -> bool:
     """Check if an IP address falls within a CIDR range."""
     try:
-        return ipaddress.ip_address(ip_str) in ipaddress.ip_network(cidr_str, strict=False)
+        return ipaddress.ip_address(ip_str) in ipaddress.ip_network(
+            cidr_str, strict=False
+        )
     except ValueError:
         return False
 

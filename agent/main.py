@@ -7,7 +7,11 @@ import logging
 import argparse
 from pathlib import Path
 
-VERSION = "3.0.4"
+<<<<<<< HEAD
+VERSION = "3.1.0"
+=======
+VERSION = "3.1.0"
+>>>>>>> d2cda99 (feat: v3.1.0 — hypothesis-driven autonomous engine, fixed reflect pipeline)
 
 # Ensure agent/ is on sys.path (for relative imports like `from tools.xxx import ...`)
 sys.path.insert(0, str(Path(__file__).parent))
@@ -28,10 +32,15 @@ ROOT = Path(__file__).parent.parent
 
 # --- Argument parsing ---
 parser = argparse.ArgumentParser(description="Phantom Ethical Red Team Agent")
-parser.add_argument("--resume", type=str, default="",
-                    help="Resume a previous session (session directory name, e.g. 20260318_120000)")
-parser.add_argument("--v3", action="store_true",
-                    help="Use v3 autonomous reasoning engine")
+parser.add_argument(
+    "--resume",
+    type=str,
+    default="",
+    help="Resume a previous session (session directory name, e.g. 20260318_120000)",
+)
+parser.add_argument(
+    "--v3", action="store_true", help="Use v3 autonomous reasoning engine"
+)
 args = parser.parse_args()
 
 # --- Change to project root ---
@@ -51,23 +60,26 @@ else:
 # --- Secret redaction filter ---
 import re as _re
 
+
 class _SecretRedactFilter(logging.Filter):
     """Redact API keys, passwords, and tokens from log output."""
+
     _PATTERNS = [
-        _re.compile(r'(sk-[a-zA-Z0-9]{20,})'),                    # Anthropic/OpenAI keys
-        _re.compile(r'(xai-[a-zA-Z0-9]{20,})'),                   # xAI keys
-        _re.compile(r'(Bearer\s+[A-Za-z0-9\-._~+/]+=*)'),         # Bearer tokens
-        _re.compile(r'(Basic\s+[A-Za-z0-9+/]+=*)'),               # Basic auth
-        _re.compile(r'(?i)(api[_-]?key\s*[=:]\s*)\S+'),           # Generic api_key=...
-        _re.compile(r'(?i)(password\s*[=:]\s*)\S+'),               # password=...
+        _re.compile(r"(sk-[a-zA-Z0-9]{20,})"),  # Anthropic/OpenAI keys
+        _re.compile(r"(xai-[a-zA-Z0-9]{20,})"),  # xAI keys
+        _re.compile(r"(Bearer\s+[A-Za-z0-9\-._~+/]+=*)"),  # Bearer tokens
+        _re.compile(r"(Basic\s+[A-Za-z0-9+/]+=*)"),  # Basic auth
+        _re.compile(r"(?i)(api[_-]?key\s*[=:]\s*)\S+"),  # Generic api_key=...
+        _re.compile(r"(?i)(password\s*[=:]\s*)\S+"),  # password=...
     ]
 
     def filter(self, record):
         msg = str(record.msg)
         for pattern in self._PATTERNS:
-            msg = pattern.sub(r'[REDACTED]', msg)
+            msg = pattern.sub(r"[REDACTED]", msg)
         record.msg = msg
         return True
+
 
 # --- Structured logging: console (INFO) + file (DEBUG) ---
 log_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -91,10 +103,17 @@ root_logger.addHandler(console_handler)
 
 # Suppress urllib3 InsecureRequestWarning spam (verify=False in tools)
 import urllib3
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Silence noisy HTTP client loggers in console (still logged to file at DEBUG level)
-for noisy_logger in ["httpx", "httpcore", "urllib3", "httpcore.http11", "httpcore.connection"]:
+for noisy_logger in [
+    "httpx",
+    "httpcore",
+    "urllib3",
+    "httpcore.http11",
+    "httpcore.connection",
+]:
     logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
@@ -105,6 +124,7 @@ if not config_path.exists():
     template = ROOT / "config.yaml.example"
     if template.exists():
         import shutil
+
         shutil.copy(template, config_path)
         print("  config.yaml created from template. Run install.ps1 to configure.")
     else:
@@ -121,7 +141,9 @@ scope_path = ROOT / config.get("scope_file", "scopes/current_scope.md")
 SCOPE = scope_path.read_text(encoding="utf-8") if scope_path.exists() else ""
 
 if not SCOPE.strip() or "https://xxx" in SCOPE:
-    print("Invalid scope or placeholder detected. Fill in scopes/current_scope.md with an authorized target.")
+    print(
+        "Invalid scope or placeholder detected. Fill in scopes/current_scope.md with an authorized target."
+    )
     sys.exit(1)
 
 # Load API key from .env if present
@@ -138,7 +160,9 @@ interactive = config.get("interactive", True)
 if args.v3:
     mode_label = "v3 AUTONOMOUS"
 else:
-    mode_label = "v2 LEGACY — " + ("AUTONOMOUS" if config.get("autonomous", False) else "INTERACTIVE")
+    mode_label = "v2 LEGACY — " + (
+        "AUTONOMOUS" if config.get("autonomous", False) else "INTERACTIVE"
+    )
 
 print("=" * 50)
 print(f"  Phantom -- Ethical RedTeam  v{VERSION}")
@@ -154,6 +178,7 @@ print("=" * 50 + "\n")
 # Apply rate limit from config
 try:
     from tools.rate_limiter import limiter as _limiter
+
     _limiter.configure(config.get("requests_per_second", 5.0))
 except ImportError:
     pass
@@ -161,6 +186,7 @@ except ImportError:
 # Apply stealth profile from config
 try:
     from tools.stealth import set_profile as _set_stealth
+
     _stealth_result = _set_stealth(config.get("stealth_profile", "normal"))
     logger.info("Startup stealth profile: %s", _stealth_result)
 except ImportError:
@@ -189,6 +215,7 @@ if args.v3:
 
     # Build scope checker function for the orchestrator
     from tools.scope_checker import scope_guard
+
     scope_checker_fn = lambda target: scope_guard(target) is None  # noqa: E731
 
     # Derive mission_id from session directory name
@@ -323,11 +350,22 @@ else:
             if turn % config.get("pause_every_n_turns", 10) == 0:
                 print(f"\nPause after {turn} steps.")
                 if interactive and sys.stdin.isatty():
-                    cmd = input("Enter = continue | 'stop' = stop | 'report' = force report: ").strip().lower()
+                    cmd = (
+                        input(
+                            "Enter = continue | 'stop' = stop | 'report' = force report: "
+                        )
+                        .strip()
+                        .lower()
+                    )
                     if cmd == "stop":
                         break
                     if cmd == "report":
-                        messages.append({"role": "user", "content": "Generate final report now using generate_report tool."})
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": "Generate final report now using generate_report tool.",
+                            }
+                        )
                 else:
                     print("  (non-interactive mode -- continuing automatically)")
 

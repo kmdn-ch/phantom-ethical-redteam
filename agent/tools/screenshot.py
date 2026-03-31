@@ -55,9 +55,12 @@ def run(url: str, full_page: bool = False) -> str:
         for browser in ["chromium", "google-chrome", "chrome"]:
             try:
                 cmd = [
-                    browser, "--headless", "--disable-gpu",
+                    browser,
+                    "--headless",
+                    "--disable-gpu",
                     f"--screenshot={output_path}",
-                    "--window-size=1280,900", "--no-sandbox",
+                    "--window-size=1280,900",
+                    "--no-sandbox",
                     url,
                 ]
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)

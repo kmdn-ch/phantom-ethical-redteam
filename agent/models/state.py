@@ -42,9 +42,17 @@ VALID_TRANSITIONS: set[tuple[MissionPhase, MissionPhase]] = {
     # Any non-terminal phase can pause
     *((p, MissionPhase.PAUSED) for p in MissionPhase if p not in _TERMINAL),
     # Any non-terminal, non-completed phase can fail
-    *((p, MissionPhase.FAILED) for p in MissionPhase if p not in {MissionPhase.COMPLETED, MissionPhase.ABORTED}),
+    *(
+        (p, MissionPhase.FAILED)
+        for p in MissionPhase
+        if p not in {MissionPhase.COMPLETED, MissionPhase.ABORTED}
+    ),
     # Any non-terminal phase can abort
-    *((p, MissionPhase.ABORTED) for p in MissionPhase if p not in {MissionPhase.COMPLETED, MissionPhase.FAILED}),
+    *(
+        (p, MissionPhase.ABORTED)
+        for p in MissionPhase
+        if p not in {MissionPhase.COMPLETED, MissionPhase.FAILED}
+    ),
     # Resume from paused
     (MissionPhase.PAUSED, MissionPhase.RECON),
     (MissionPhase.PAUSED, MissionPhase.ENUMERATE),

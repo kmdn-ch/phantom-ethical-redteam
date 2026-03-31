@@ -142,7 +142,9 @@ def create_sandbox_env() -> dict[str, str]:
     # Final paranoia pass: reject anything that slipped through
     for key in list(env.keys()):
         key_upper = key.upper()
-        if any(key_upper.startswith(p) or key_upper == p for p in _SENSITIVE_ENV_PREFIXES):
+        if any(
+            key_upper.startswith(p) or key_upper == p for p in _SENSITIVE_ENV_PREFIXES
+        ):
             del env[key]
 
     return env
@@ -226,11 +228,38 @@ def validate_network_targets(
             continue
         # Skip Python module/attribute patterns (e.g., requests.get, json.dumps)
         _PYTHON_ROOTS = {
-            "requests", "json", "urllib", "base64", "hashlib", "html", "xml",
-            "struct", "binascii", "http", "ssl", "ipaddress", "time",
-            "datetime", "collections", "itertools", "string", "textwrap",
-            "io", "csv", "math", "re", "socket", "os", "sys", "self",
-            "print", "result", "response", "data", "config", "status",
+            "requests",
+            "json",
+            "urllib",
+            "base64",
+            "hashlib",
+            "html",
+            "xml",
+            "struct",
+            "binascii",
+            "http",
+            "ssl",
+            "ipaddress",
+            "time",
+            "datetime",
+            "collections",
+            "itertools",
+            "string",
+            "textwrap",
+            "io",
+            "csv",
+            "math",
+            "re",
+            "socket",
+            "os",
+            "sys",
+            "self",
+            "print",
+            "result",
+            "response",
+            "data",
+            "config",
+            "status",
         }
         first_part = domain.split(".")[0]
         if first_part in _PYTHON_ROOTS:

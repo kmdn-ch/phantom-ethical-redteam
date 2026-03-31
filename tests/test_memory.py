@@ -67,10 +67,14 @@ def test_update_target_new(memory):
 
 
 def test_update_target_merge(memory):
-    t1 = TargetInfo(host="10.0.0.1", ports=[80], services={80: "http"}, technologies=["Apache"])
+    t1 = TargetInfo(
+        host="10.0.0.1", ports=[80], services={80: "http"}, technologies=["Apache"]
+    )
     memory.update_target(t1)
 
-    t2 = TargetInfo(host="10.0.0.1", ports=[443], services={443: "https"}, technologies=["PHP"])
+    t2 = TargetInfo(
+        host="10.0.0.1", ports=[443], services={443: "https"}, technologies=["PHP"]
+    )
     memory.update_target(t2)
 
     merged = memory.target_map["10.0.0.1"]
@@ -88,8 +92,12 @@ def test_update_target_merge(memory):
 
 
 def test_unanswered_hypotheses(memory):
-    memory.add_hypothesis(Hypothesis(id="h1", confidence=HypothesisConfidence.SPECULATIVE))
-    memory.add_hypothesis(Hypothesis(id="h2", confidence=HypothesisConfidence.CONFIRMED))
+    memory.add_hypothesis(
+        Hypothesis(id="h1", confidence=HypothesisConfidence.SPECULATIVE)
+    )
+    memory.add_hypothesis(
+        Hypothesis(id="h2", confidence=HypothesisConfidence.CONFIRMED)
+    )
     memory.add_hypothesis(Hypothesis(id="h3", confidence=HypothesisConfidence.PROBABLE))
 
     unanswered = memory.unanswered_hypotheses()
@@ -136,7 +144,9 @@ def test_findings_for_target(memory):
 
 
 def test_summary_for_context_basic(memory):
-    memory.add_finding(Finding(id="f1", severity="high", title="XSS", target="10.0.0.1"))
+    memory.add_finding(
+        Finding(id="f1", severity="high", title="XSS", target="10.0.0.1")
+    )
     memory.update_target(TargetInfo(host="10.0.0.1", ports=[80], services={80: "http"}))
     memory.add_hypothesis(Hypothesis(id="h1", statement="Test hypothesis"))
 
@@ -161,10 +171,16 @@ def test_summary_for_context_truncation(memory):
 
 
 def test_memory_to_dict_from_dict(memory):
-    memory.add_finding(Finding(id="f1", severity="high", title="SQLi", target="10.0.0.1", cvss=8.5))
+    memory.add_finding(
+        Finding(id="f1", severity="high", title="SQLi", target="10.0.0.1", cvss=8.5)
+    )
     memory.add_action(ActionRecord(id="a1", tool="nmap"))
-    memory.add_hypothesis(Hypothesis(id="h1", statement="test", confidence=HypothesisConfidence.PROBABLE))
-    memory.update_target(TargetInfo(host="10.0.0.1", ports=[80, 443], services={80: "http"}))
+    memory.add_hypothesis(
+        Hypothesis(id="h1", statement="test", confidence=HypothesisConfidence.PROBABLE)
+    )
+    memory.update_target(
+        TargetInfo(host="10.0.0.1", ports=[80, 443], services={80: "http"})
+    )
 
     d = memory.to_dict()
     restored = MissionMemory.from_dict(d)
@@ -219,7 +235,9 @@ def test_save_and_load_action(db):
     state = MissionState(mission_id="m1")
     db.save_state(state)
 
-    a = ActionRecord(id="a1", tool="nmap", parameters={"target": "10.0.0.1"}, success=True)
+    a = ActionRecord(
+        id="a1", tool="nmap", parameters={"target": "10.0.0.1"}, success=True
+    )
     db.save_action(a, "m1")
 
     data = db.load_mission("m1")
@@ -251,7 +269,9 @@ def test_save_and_load_target(db):
     state = MissionState(mission_id="m1")
     db.save_state(state)
 
-    t = TargetInfo(host="10.0.0.1", ports=[22, 80], services={80: "http"}, os_guess="Ubuntu")
+    t = TargetInfo(
+        host="10.0.0.1", ports=[22, 80], services={80: "http"}, os_guess="Ubuntu"
+    )
     db.save_target(t, "m1")
 
     data = db.load_mission("m1")
@@ -356,9 +376,15 @@ def test_timeline_counts_findings():
 
 def test_timeline_tracks_tools():
     events = [
-        _make_event(1, EventType.TOOL_INVOKED, phase="recon", delta_seconds=0, tool_name="nmap"),
-        _make_event(2, EventType.TOOL_INVOKED, phase="recon", delta_seconds=5, tool_name="ffuf"),
-        _make_event(3, EventType.TOOL_INVOKED, phase="recon", delta_seconds=10, tool_name="nmap"),
+        _make_event(
+            1, EventType.TOOL_INVOKED, phase="recon", delta_seconds=0, tool_name="nmap"
+        ),
+        _make_event(
+            2, EventType.TOOL_INVOKED, phase="recon", delta_seconds=5, tool_name="ffuf"
+        ),
+        _make_event(
+            3, EventType.TOOL_INVOKED, phase="recon", delta_seconds=10, tool_name="nmap"
+        ),
     ]
     tb = TimelineBuilder()
     phases = tb.build_timeline(events)
@@ -367,9 +393,17 @@ def test_timeline_tracks_tools():
 
 def test_timeline_to_markdown():
     events = [
-        _make_event(1, EventType.TOOL_INVOKED, phase="recon", delta_seconds=0, tool_name="nmap"),
-        _make_event(2, EventType.FINDING_DISCOVERED, phase="recon", delta_seconds=30,
-                    severity=Severity.HIGH, title="Open admin panel"),
+        _make_event(
+            1, EventType.TOOL_INVOKED, phase="recon", delta_seconds=0, tool_name="nmap"
+        ),
+        _make_event(
+            2,
+            EventType.FINDING_DISCOVERED,
+            phase="recon",
+            delta_seconds=30,
+            severity=Severity.HIGH,
+            title="Open admin panel",
+        ),
     ]
     tb = TimelineBuilder()
     tb.build_timeline(events)

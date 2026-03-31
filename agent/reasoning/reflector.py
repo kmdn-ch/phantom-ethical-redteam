@@ -142,7 +142,8 @@ class ReflectionLayer:
 
         # After a plan was recently abandoned
         if any(
-            p.status == PlanStatus.ABANDONED and p.created_turn > self._last_reflect_turn
+            p.status == PlanStatus.ABANDONED
+            and p.created_turn > self._last_reflect_turn
             for p in state.plans
         ):
             return True
@@ -265,7 +266,9 @@ custom_tool_needed: [yes/no -- if yes, describe what it should do]
             actions_taken.append("Flagged for human input escalation")
 
         if decision == "modify":
-            actions_taken.append("Current approach will be modified based on reflection")
+            actions_taken.append(
+                "Current approach will be modified based on reflection"
+            )
 
         if reflection.get("approach_effective") == "no":
             actions_taken.append(
@@ -411,9 +414,7 @@ custom_tool_needed: [yes/no -- if yes, describe what it should do]
         if state.findings:
             lines.append("Recent findings:")
             for f in state.findings[-3:]:
-                lines.append(
-                    f"  [{f.get('severity', '?')}] {f.get('title', '')[:60]}"
-                )
+                lines.append(f"  [{f.get('severity', '?')}] {f.get('title', '')[:60]}")
 
         return "\n".join(lines)
 

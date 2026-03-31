@@ -132,7 +132,9 @@ class AttackGraph:
             edge = self._edges[edge_idx]
             if edge.target_id not in visited:
                 path.append(edge.target_id)
-                self._dfs_paths(edge.target_id, target, path, visited, results, max_depth)
+                self._dfs_paths(
+                    edge.target_id, target, path, visited, results, max_depth
+                )
                 path.pop()
         visited.discard(current)
 
@@ -142,9 +144,7 @@ class AttackGraph:
         Terminal nodes are those with no outgoing edges (leaf nodes).
         Chains are sorted longest-first to surface deep exploitation paths.
         """
-        terminal_ids = {
-            nid for nid in self._nodes if not self._adjacency.get(nid)
-        }
+        terminal_ids = {nid for nid in self._nodes if not self._adjacency.get(nid)}
         host_nodes = [n for n in self._nodes.values() if n.node_type == NodeType.HOST]
         chains: list[list[GraphNode]] = []
 

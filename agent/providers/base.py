@@ -6,7 +6,6 @@ logger = logging.getLogger(__name__)
 
 
 class BaseLLMProvider(ABC):
-
     # Subclasses can override these defaults
     MAX_RETRIES = 3
     RETRY_BACKOFF = 2.0
@@ -40,15 +39,20 @@ class BaseLLMProvider(ABC):
             except Exception as e:
                 last_error = e
                 if attempt < self.MAX_RETRIES - 1:
-                    wait = self.RETRY_BACKOFF ** attempt
+                    wait = self.RETRY_BACKOFF**attempt
                     logger.warning(
                         "LLM API call failed (attempt %d/%d): %s — retrying in %.0fs (timeout was %ds)",
-                        attempt + 1, self.MAX_RETRIES, e, wait, self.TIMEOUT,
+                        attempt + 1,
+                        self.MAX_RETRIES,
+                        e,
+                        wait,
+                        self.TIMEOUT,
                     )
                     time.sleep(wait)
                 else:
                     logger.error(
                         "LLM API call failed after %d attempts: %s",
-                        self.MAX_RETRIES, e,
+                        self.MAX_RETRIES,
+                        e,
                     )
         raise last_error

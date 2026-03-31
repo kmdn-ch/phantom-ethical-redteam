@@ -16,17 +16,32 @@ logger = logging.getLogger(__name__)
 
 # Minimal default credentials (common across services)
 DEFAULT_CREDS = [
-    ("admin", "admin"), ("admin", "password"), ("admin", "123456"),
-    ("admin", "admin123"), ("root", "root"), ("root", "toor"),
-    ("root", "password"), ("test", "test"), ("user", "user"),
-    ("guest", "guest"), ("admin", ""), ("root", ""),
-    ("administrator", "administrator"), ("admin", "changeme"),
-    ("admin", "letmein"), ("admin", "welcome"),
+    ("admin", "admin"),
+    ("admin", "password"),
+    ("admin", "123456"),
+    ("admin", "admin123"),
+    ("root", "root"),
+    ("root", "toor"),
+    ("root", "password"),
+    ("test", "test"),
+    ("user", "user"),
+    ("guest", "guest"),
+    ("admin", ""),
+    ("root", ""),
+    ("administrator", "administrator"),
+    ("admin", "changeme"),
+    ("admin", "letmein"),
+    ("admin", "welcome"),
 ]
 
 # Service-specific defaults
 SERVICE_DEFAULTS = {
-    "tomcat": [("tomcat", "tomcat"), ("admin", "tomcat"), ("tomcat", "s3cret"), ("admin", "admin")],
+    "tomcat": [
+        ("tomcat", "tomcat"),
+        ("admin", "tomcat"),
+        ("tomcat", "s3cret"),
+        ("admin", "admin"),
+    ],
     "jenkins": [("admin", "admin"), ("admin", "password"), ("admin", "jenkins")],
     "joomla": [("admin", "admin"), ("admin", "joomla"), ("admin", "password")],
     "wordpress": [("admin", "admin"), ("admin", "password"), ("admin", "wordpress")],
@@ -40,10 +55,13 @@ SERVICE_DEFAULTS = {
 _MAX_CONSECUTIVE_429 = 3  # Abort after this many consecutive 429 responses
 
 
-def _python_http_brute(target: str, usernames: list, passwords: list, form_params: dict) -> list:
+def _python_http_brute(
+    target: str, usernames: list, passwords: list, form_params: dict
+) -> list:
     """Pure Python HTTP form brute force (fallback when Hydra unavailable)."""
     import requests as _requests
     from .http_utils import retry_request
+
     results = []
     login_url = target
     user_field = form_params.get("user_field", "username")
@@ -68,17 +86,28 @@ def _python_http_brute(target: str, usernames: list, passwords: list, form_param
             stealth_delay()
             try:
                 resp = retry_request(
-                    login_url, method="POST",
+                    login_url,
+                    method="POST",
                     headers=stealth_headers(),
                     data={user_field: user, pass_field: passwd},
-                    timeout=10, max_retries=1,
+                    timeout=10,
+                    max_retries=1,
                 )
                 tested += 1
                 consecutive_429 = 0  # reset on any successful response
                 body = resp.text.lower()
                 # Check for success (no fail string, or redirect, or 302)
-                if fail_string.lower() not in body and resp.status_code in (200, 301, 302, 303):
-                    if resp.status_code in (301, 302, 303) or "dashboard" in body or "welcome" in body:
+                if fail_string.lower() not in body and resp.status_code in (
+                    200,
+                    301,
+                    302,
+                    303,
+                ):
+                    if (
+                        resp.status_code in (301, 302, 303)
+                        or "dashboard" in body
+                        or "welcome" in body
+                    ):
                         results.append(f"[CRITICAL] Valid credentials: {user}:{passwd}")
                         logger.info("CREDENTIAL FOUND: %s on %s", user, target)
             except _requests.exceptions.HTTPError as exc:
@@ -88,7 +117,9 @@ def _python_http_brute(target: str, usernames: list, passwords: list, form_param
                     wait = 5.0 * consecutive_429
                     logger.warning(
                         "429 received (%d consecutive) on %s — backing off %.0fs",
-                        consecutive_429, target, wait,
+                        consecutive_429,
+                        target,
+                        wait,
                     )
                     time.sleep(wait)
                 else:
@@ -99,12 +130,19 @@ def _python_http_brute(target: str, usernames: list, passwords: list, form_param
                 continue
 
     if not results:
-        results.append(f"[INFO] Tested {tested} combinations — no valid credentials found")
+        results.append(
+            f"[INFO] Tested {tested} combinations — no valid credentials found"
+        )
     return results
 
 
-def run(target: str, service: str = "http-form", userlist: str = "", passlist: str = "",
-        form_params: str = "") -> str:
+def run(
+    target: str,
+    service: str = "http-form",
+    userlist: str = "",
+    passlist: str = "",
+    form_params: str = "",
+) -> str:
     guard = scope_guard(target)
     if guard:
         return guard
@@ -133,7 +171,16 @@ def run(target: str, service: str = "http-form", userlist: str = "", passlist: s
         return f"Invalid hostname '{hostname}'. Must not start with a dash."
 
     # Validate service against allowlist to prevent argument injection
-    ALLOWED_SERVICES = {"ssh", "ftp", "mysql", "rdp", "smb", "telnet", "vnc", "http-form"}
+    ALLOWED_SERVICES = {
+        "ssh",
+        "ftp",
+        "mysql",
+        "rdp",
+        "smb",
+        "telnet",
+        "vnc",
+        "http-form",
+    }
     if service not in ALLOWED_SERVICES:
         return f"Invalid service '{service}'. Allowed: {', '.join(sorted(ALLOWED_SERVICES))}"
 
@@ -156,8 +203,13 @@ def run(target: str, service: str = "http-form", userlist: str = "", passlist: s
                 pf.write("\n".join(passwords[:20]))
 
             cmd = [
-                "hydra", "-L", user_file, "-P", pass_file,
-                hostname, service,
+                "hydra",
+                "-L",
+                user_file,
+                "-P",
+                pass_file,
+                hostname,
+                service,
             ]
             if port:
                 cmd.extend(["-s", port])
@@ -177,9 +229,8 @@ def run(target: str, service: str = "http-form", userlist: str = "", passlist: s
                 findings.append(f"[CRITICAL] {svc}://{login}:{passwd}@{h}:{port_n}")
 
             if findings:
-                return (
-                    f"Hydra — {len(findings)} credentials found:\n"
-                    + "\n".join(f"  {f}" for f in findings)
+                return f"Hydra — {len(findings)} credentials found:\n" + "\n".join(
+                    f"  {f}" for f in findings
                 )
             return f"Hydra — 0 credentials found ({len(usernames)}x{len(passwords)} tested)"
 
@@ -205,7 +256,9 @@ def run(target: str, service: str = "http-form", userlist: str = "", passlist: s
                 params[k.strip()] = v.strip()
 
     findings = _python_http_brute(target, usernames, passwords, params)
-    return f"Brute force — {len(findings)} results:\n" + "\n".join(f"  {f}" for f in findings)
+    return f"Brute force — {len(findings)} results:\n" + "\n".join(
+        f"  {f}" for f in findings
+    )
 
 
 TOOL_SPEC = {

@@ -3,7 +3,6 @@ from .base import BaseLLMProvider
 
 
 class AnthropicProvider(BaseLLMProvider):
-
     DEFAULT_MODEL = "claude-sonnet-4-6"
 
     def __init__(self, api_key: str, model: str = None):
@@ -31,10 +30,12 @@ class AnthropicProvider(BaseLLMProvider):
             if content.type == "text":
                 text_blocks.append(content.text)
             elif content.type == "tool_use":
-                tool_calls.append({
-                    "id": content.id,
-                    "name": content.name,
-                    "input": content.input,
-                })
+                tool_calls.append(
+                    {
+                        "id": content.id,
+                        "name": content.name,
+                        "input": content.input,
+                    }
+                )
 
         return text_blocks, tool_calls

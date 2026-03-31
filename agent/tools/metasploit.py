@@ -70,7 +70,7 @@ def _sanitize_msf_value(value: str) -> str:
 
     This strips all characters that could act as command separators or injection vectors.
     """
-    dangerous_chars = set(';"\'\n\r`$(){}[]|&<>\\')
+    dangerous_chars = set(";\"'\n\r`$(){}[]|&<>\\")
     return "".join(c for c in str(value) if c not in dangerous_chars)
 
 
@@ -229,8 +229,20 @@ def _parse_exploit_results(output: str) -> str:
 
     for line in lines:
         lower = line.lower()
-        if any(kw in lower for kw in ("session", "opened", "shell", "command shell",
-                                       "vulnerable", "found", "success", "[+]", "[*]")):
+        if any(
+            kw in lower
+            for kw in (
+                "session",
+                "opened",
+                "shell",
+                "command shell",
+                "vulnerable",
+                "found",
+                "success",
+                "[+]",
+                "[*]",
+            )
+        ):
             findings.append(line.strip())
 
     if findings:
@@ -310,7 +322,7 @@ def run(
         if not lhost:
             return (
                 "LHOST is required for exploit actions. "
-                "Provide it in options: {\"LHOST\": \"<your-ip>\"}. "
+                'Provide it in options: {"LHOST": "<your-ip>"}. '
                 "Auto-detection is disabled for safety."
             )
         err, msf_cmd = _build_exploit_command(module, target, dict(options))
@@ -340,11 +352,16 @@ def run(
 
     cmd = ["msfconsole", "-q", "-x", msf_cmd]
 
-    logger.info("Running msfconsole: action=%s module=%s target=%s", action, module, target)
+    logger.info(
+        "Running msfconsole: action=%s module=%s target=%s", action, module, target
+    )
 
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
         )
         output = result.stdout + "\n" + result.stderr
 
@@ -354,7 +371,7 @@ def run(
                 f.write(f"# Metasploit {action} — {datetime.now().isoformat()}\n")
                 f.write(f"# Module: {module}\n")
                 f.write(f"# Target: {target}\n")
-                f.write(f"# Command: msfconsole -q -x \"{msf_cmd}\"\n")
+                f.write(f'# Command: msfconsole -q -x "{msf_cmd}"\n')
                 f.write("# " + "=" * 70 + "\n\n")
                 f.write(output)
         except OSError as write_err:
@@ -372,7 +389,9 @@ def run(
                 f"Full output logged to: {output_file}"
             )
         if len(result_text) > 5000:
-            result_text = result_text[:5000] + f"\n... (use read_log to see full output)"
+            result_text = (
+                result_text[:5000] + f"\n... (use read_log to see full output)"
+            )
         return result_text
 
     except subprocess.TimeoutExpired:

@@ -22,7 +22,9 @@ if str(_AGENT.parent) not in sys.path:
 
 def _load_file(name: str, filepath: Path):
     """Load a single .py file as a module without triggering package __init__."""
-    spec = importlib.util.spec_from_file_location(name, filepath, submodule_search_locations=[])
+    spec = importlib.util.spec_from_file_location(
+        name, filepath, submodule_search_locations=[]
+    )
     mod = importlib.util.module_from_spec(spec)
     sys.modules[name] = mod
     spec.loader.exec_module(mod)
@@ -31,7 +33,9 @@ def _load_file(name: str, filepath: Path):
 
 # Load sandbox and templates first (no problematic deps)
 _sandbox_mod = _load_file("agent.tools.sandbox", _ROOT / "sandbox.py")
-_templates_mod = _load_file("agent.tools.script_templates", _ROOT / "script_templates.py")
+_templates_mod = _load_file(
+    "agent.tools.script_templates", _ROOT / "script_templates.py"
+)
 
 # Now load forge — it imports sandbox + templates which are already in sys.modules
 _forge_mod = _load_file("agent.tools.forge", _ROOT / "forge.py")

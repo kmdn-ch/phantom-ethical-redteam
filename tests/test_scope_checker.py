@@ -6,6 +6,7 @@ import pytest
 
 # Add agent/ to path
 import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "agent"))
 
 from tools.scope_checker import load_scope_targets, is_in_scope, scope_guard
@@ -14,10 +15,12 @@ from tools.scope_checker import load_scope_targets, is_in_scope, scope_guard
 @pytest.fixture
 def scope_file(tmp_path):
     """Create a temporary scope file and return its path."""
+
     def _create(content: str) -> str:
         p = tmp_path / "scope.md"
         p.write_text(content)
         return str(p)
+
     return _create
 
 

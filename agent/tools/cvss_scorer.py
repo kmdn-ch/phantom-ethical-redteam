@@ -122,7 +122,9 @@ def run(findings: list | None = None, **kwargs) -> str:
     high_weight = breakdown["critical"] + breakdown["high"]
     low_weight = breakdown["medium"] + breakdown["low"] + breakdown["info"]
     if high_weight > 0 and low_weight > high_weight:
-        risk_factors.append("Weighted average skewed by high-severity items despite more low-severity findings")
+        risk_factors.append(
+            "Weighted average skewed by high-severity items despite more low-severity findings"
+        )
     elif high_weight > low_weight and low_weight > 0:
         risk_factors.append("High-severity findings outnumber lower-severity ones")
     if not risk_factors:

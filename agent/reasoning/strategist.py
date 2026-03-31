@@ -153,12 +153,32 @@ class Strategist:
 
             # High-value ports (management, databases, admin panels)
             high_value_ports = {
-                21, 22, 23, 25, 53, 80, 110, 135, 139, 443, 445, 1433,
-                1521, 3306, 3389, 5432, 5900, 6379, 8080, 8443, 9090, 27017,
+                21,
+                22,
+                23,
+                25,
+                53,
+                80,
+                110,
+                135,
+                139,
+                443,
+                445,
+                1433,
+                1521,
+                3306,
+                3389,
+                5432,
+                5900,
+                6379,
+                8080,
+                8443,
+                9090,
+                27017,
             }
-            matching_ports = set(
-                int(p) for p in ports if str(p).isdigit()
-            ) & high_value_ports
+            matching_ports = (
+                set(int(p) for p in ports if str(p).isdigit()) & high_value_ports
+            )
             score += min(0.4, len(matching_ports) * 0.1)
 
             # Existing vulnerabilities raise the score
@@ -170,9 +190,7 @@ class Strategist:
 
             reason_parts: list[str] = []
             if matching_ports:
-                reason_parts.append(
-                    f"high-value ports: {sorted(matching_ports)}"
-                )
+                reason_parts.append(f"high-value ports: {sorted(matching_ports)}")
             if vulns:
                 reason_parts.append(f"{len(vulns)} known vulnerabilities")
             if not explored:
@@ -182,7 +200,9 @@ class Strategist:
                 targets.append(
                     {
                         "target": host,
-                        "reason": "; ".join(reason_parts) if reason_parts else "in scope",
+                        "reason": "; ".join(reason_parts)
+                        if reason_parts
+                        else "in scope",
                         "score": round(min(1.0, score), 2),
                         "explored": explored,
                     }
@@ -221,7 +241,9 @@ class Strategist:
 
         # 2. LLM-augmented suggestions (if available)
         if self.llm_call is not None and attack_graph:
-            llm_objectives = self._llm_objectives(state, attack_graph, mission_memory or {})
+            llm_objectives = self._llm_objectives(
+                state, attack_graph, mission_memory or {}
+            )
             objectives.extend(llm_objectives)
 
         # Deduplicate by objective text (keep highest priority)
@@ -352,9 +374,7 @@ class Strategist:
         coverage: dict[str, float] = {}
         for cat, relevant_tools in categories.items():
             matched = sum(
-                1
-                for t in relevant_tools
-                if any(t in used for used in tools_used)
+                1 for t in relevant_tools if any(t in used for used in tools_used)
             )
             coverage[cat] = round(matched / max(len(relevant_tools), 1), 2)
 
@@ -377,7 +397,9 @@ class Strategist:
         # Low coverage areas
         for cat, pct in coverage.items():
             if pct < 0.3:
-                recs.append(f"Low {cat} coverage ({pct:.0%}) -- consider expanding testing")
+                recs.append(
+                    f"Low {cat} coverage ({pct:.0%}) -- consider expanding testing"
+                )
 
         # Unexploited chains
         if chains:
@@ -429,9 +451,7 @@ class Strategist:
 
         # Exploit critical/high findings
         critical_findings = [
-            f
-            for f in state.findings
-            if f.get("severity") in ("CRITICAL", "HIGH")
+            f for f in state.findings if f.get("severity") in ("CRITICAL", "HIGH")
         ]
         if critical_findings:
             latest = critical_findings[-1]
@@ -442,7 +462,11 @@ class Strategist:
                     "rationale": (
                         f"Critical/high finding detected: {latest.get('title', '')[:60]}"
                     ),
-                    "suggested_tools": ["run_sqlmap", "run_metasploit", "run_custom_script"],
+                    "suggested_tools": [
+                        "run_sqlmap",
+                        "run_metasploit",
+                        "run_custom_script",
+                    ],
                 }
             )
 
@@ -462,8 +486,7 @@ class Strategist:
         # If all plans are stalled, suggest pivoting
         active = state.active_plans()
         if active and all(
-            all(a.status in ("failed", "skipped") for a in p.actions)
-            for p in active
+            all(a.status in ("failed", "skipped") for a in p.actions) for p in active
         ):
             objectives.append(
                 {
@@ -494,8 +517,7 @@ class Strategist:
         hosts = attack_graph.get("hosts", {})
         findings_count = len(state.findings)
         plans_summary = ", ".join(
-            f"[{p.id}] {p.objective[:40]} ({p.status.value})"
-            for p in state.plans[-5:]
+            f"[{p.id}] {p.objective[:40]} ({p.status.value})" for p in state.plans[-5:]
         )
 
         prompt = f"""\
@@ -506,7 +528,7 @@ State:
 - Turn: {state.turn}
 - Hosts: {list(hosts.keys())[:10]}
 - Findings: {findings_count} total
-- Plans: {plans_summary or 'none'}
+- Plans: {plans_summary or "none"}
 
 For each objective, output one line in this format:
 OBJECTIVE: <description> | PRIORITY: <0.0-1.0> | RATIONALE: <why> | TOOLS: <tool1,tool2>

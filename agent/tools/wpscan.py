@@ -14,12 +14,21 @@ logger = logging.getLogger(__name__)
 
 # Common WordPress paths to probe
 WP_PATHS = [
-    "/wp-login.php", "/wp-admin/", "/wp-json/wp/v2/users",
-    "/wp-json/", "/xmlrpc.php", "/wp-cron.php",
-    "/wp-content/debug.log", "/wp-config.php.bak", "/wp-config.php~",
-    "/wp-content/uploads/", "/wp-content/plugins/",
-    "/.wp-config.php.swp", "/wp-includes/version.php",
-    "/readme.html", "/license.txt",
+    "/wp-login.php",
+    "/wp-admin/",
+    "/wp-json/wp/v2/users",
+    "/wp-json/",
+    "/xmlrpc.php",
+    "/wp-cron.php",
+    "/wp-content/debug.log",
+    "/wp-config.php.bak",
+    "/wp-config.php~",
+    "/wp-content/uploads/",
+    "/wp-content/plugins/",
+    "/.wp-config.php.swp",
+    "/wp-includes/version.php",
+    "/readme.html",
+    "/license.txt",
 ]
 
 # Known vulnerable endpoints
@@ -42,7 +51,9 @@ def _python_wpscan(target: str) -> str:
         stealth_delay()
         url = target.rstrip("/") + path
         try:
-            resp = retry_request(url, headers=stealth_headers(), timeout=10, max_retries=1)
+            resp = retry_request(
+                url, headers=stealth_headers(), timeout=10, max_retries=1
+            )
             status = resp.status_code
 
             if status == 200:
@@ -59,26 +70,40 @@ def _python_wpscan(target: str) -> str:
                     m = re.search(r"\$wp_version\s*=\s*'([\d.]+)'", body)
                     if m:
                         wp_version = m.group(1)
-                        findings.append(f"[INFO] WordPress version: {wp_version} (from version.php)")
+                        findings.append(
+                            f"[INFO] WordPress version: {wp_version} (from version.php)"
+                        )
 
                 # User enumeration
                 if path == "/wp-json/wp/v2/users":
                     try:
                         user_data = resp.json()
                         if isinstance(user_data, list):
-                            users = [u.get("slug", u.get("name", "?")) for u in user_data[:10]]
-                            findings.append(f"[HIGH] User enumeration via REST API: {users}")
+                            users = [
+                                u.get("slug", u.get("name", "?"))
+                                for u in user_data[:10]
+                            ]
+                            findings.append(
+                                f"[HIGH] User enumeration via REST API: {users}"
+                            )
                     except (json.JSONDecodeError, ValueError):
                         pass
 
                 # Check known vulnerable paths
                 if path in WP_CHECKS:
-                    sev = "[HIGH]" if "credential" in WP_CHECKS[path] or "sensitive" in WP_CHECKS[path] else "[MEDIUM]"
+                    sev = (
+                        "[HIGH]"
+                        if "credential" in WP_CHECKS[path]
+                        or "sensitive" in WP_CHECKS[path]
+                        else "[MEDIUM]"
+                    )
                     findings.append(f"{sev} {path} accessible: {WP_CHECKS[path]}")
 
                 # Debug log
                 if path == "/wp-content/debug.log" and len(body) > 50:
-                    findings.append(f"[HIGH] Debug log exposed ({len(resp.text)} bytes)")
+                    findings.append(
+                        f"[HIGH] Debug log exposed ({len(resp.text)} bytes)"
+                    )
 
             elif status == 403 and path in ("/wp-admin/", "/wp-content/uploads/"):
                 findings.append(f"[INFO] {path} exists (403 Forbidden)")
@@ -94,10 +119,13 @@ def _python_wpscan(target: str) -> str:
             method="POST",
             headers=stealth_headers(),
             data={"log": "admin", "pwd": "test", "wp-submit": "Log In"},
-            timeout=10, max_retries=1,
+            timeout=10,
+            max_retries=1,
         )
         if "incorrect" in resp.text.lower() or "error" in resp.text.lower():
-            findings.append("[INFO] wp-login.php accepts POST — no CAPTCHA/lockout detected")
+            findings.append(
+                "[INFO] wp-login.php accepts POST — no CAPTCHA/lockout detected"
+            )
     except Exception:
         pass
 
@@ -123,7 +151,16 @@ def run(target: str, api_token: str = "") -> str:
     output_path = log_path("wpscan.json")
 
     # Try wpscan CLI first
-    cmd = ["wpscan", "--url", target, "--format", "json", "-o", output_path, "--no-banner"]
+    cmd = [
+        "wpscan",
+        "--url",
+        target,
+        "--format",
+        "json",
+        "-o",
+        output_path,
+        "--no-banner",
+    ]
     if api_token:
         cmd.extend(["--api-token", api_token])
 
@@ -132,6 +169,7 @@ def run(target: str, api_token: str = "") -> str:
 
         if result.returncode in (0, 5) and output_path:
             import os
+
             if os.path.exists(output_path):
                 with open(output_path, encoding="utf-8") as f:
                     data = json.load(f)
@@ -141,7 +179,9 @@ def run(target: str, api_token: str = "") -> str:
                 if data.get("version", {}).get("number"):
                     findings.append(f"[INFO] WordPress {data['version']['number']}")
                     if data["version"].get("status") == "insecure":
-                        findings.append(f"[HIGH] WordPress version {data['version']['number']} is INSECURE")
+                        findings.append(
+                            f"[HIGH] WordPress version {data['version']['number']} is INSECURE"
+                        )
 
                 # Plugins
                 for name, info in data.get("plugins", {}).items():
@@ -149,7 +189,9 @@ def run(target: str, api_token: str = "") -> str:
                     if vulns:
                         for v in vulns[:3]:
                             sev = v.get("cvss", {}).get("severity", "medium").upper()
-                            findings.append(f"[{sev}] Plugin '{name}': {v.get('title', 'vuln')}")
+                            findings.append(
+                                f"[{sev}] Plugin '{name}': {v.get('title', 'vuln')}"
+                            )
 
                 # Users
                 users = [u.get("username", "?") for u in data.get("users", [])]
@@ -157,9 +199,14 @@ def run(target: str, api_token: str = "") -> str:
                     findings.append(f"[MEDIUM] Enumerated users: {users}")
 
                 if findings:
-                    cli_result = f"WPScan — {len(findings)} findings:\n" + "\n".join(f"  {f}" for f in findings)
+                    cli_result = f"WPScan — {len(findings)} findings:\n" + "\n".join(
+                        f"  {f}" for f in findings
+                    )
                     if len(cli_result) > 5000:
-                        cli_result = cli_result[:5000] + "\n... (use read_log 'wpscan.json' to see full output)"
+                        cli_result = (
+                            cli_result[:5000]
+                            + "\n... (use read_log 'wpscan.json' to see full output)"
+                        )
                     return cli_result
                 return "WPScan done — 0 findings"
 
@@ -193,7 +240,10 @@ TOOL_SPEC = {
         "type": "object",
         "properties": {
             "target": {"type": "string", "description": "Target WordPress URL"},
-            "api_token": {"type": "string", "description": "WPScan API token (optional, for vuln DB)"},
+            "api_token": {
+                "type": "string",
+                "description": "WPScan API token (optional, for vuln DB)",
+            },
         },
         "required": ["target"],
     },

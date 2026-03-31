@@ -271,9 +271,7 @@ class MissionDB:
                 json.dumps(event.cve_ids) if event.cve_ids else None,
                 event.cvss_score,
                 event.reasoning,
-                json.dumps(event.parent_event_ids)
-                if event.parent_event_ids
-                else None,
+                json.dumps(event.parent_event_ids) if event.parent_event_ids else None,
                 json.dumps(event.metadata) if event.metadata else None,
             ),
         )
@@ -389,9 +387,7 @@ class MissionDB:
                 json.dumps({str(k): v for k, v in target.services.items()})
                 if target.services
                 else None,
-                json.dumps(target.technologies)
-                if target.technologies
-                else None,
+                json.dumps(target.technologies) if target.technologies else None,
                 target.os_guess,
             ),
         )
@@ -432,9 +428,7 @@ class MissionDB:
                     node.get("timestamp", datetime.utcnow().isoformat()),
                     node.get("event_id"),
                     node.get("fingerprint"),
-                    json.dumps(node.get("metadata"))
-                    if node.get("metadata")
-                    else None,
+                    json.dumps(node.get("metadata")) if node.get("metadata") else None,
                 ),
             )
         for edge in edges:
@@ -452,9 +446,7 @@ class MissionDB:
                     edge.get("label", ""),
                     edge.get("turn"),
                     edge.get("timestamp", datetime.utcnow().isoformat()),
-                    json.dumps(edge.get("metadata"))
-                    if edge.get("metadata")
-                    else None,
+                    json.dumps(edge.get("metadata")) if edge.get("metadata") else None,
                 ),
             )
         self._conn.commit()
@@ -658,9 +650,7 @@ class MissionDB:
 
     @staticmethod
     def _row_to_hypothesis(row: sqlite3.Row) -> Hypothesis:
-        evidence_for = (
-            json.loads(row["evidence_for"]) if row["evidence_for"] else []
-        )
+        evidence_for = json.loads(row["evidence_for"]) if row["evidence_for"] else []
         evidence_against = (
             json.loads(row["evidence_against"]) if row["evidence_against"] else []
         )
@@ -681,9 +671,7 @@ class MissionDB:
         if row["services_json"]:
             raw = json.loads(row["services_json"])
             services = {int(k): v for k, v in raw.items()}
-        techs = (
-            json.loads(row["technologies_json"]) if row["technologies_json"] else []
-        )
+        techs = json.loads(row["technologies_json"]) if row["technologies_json"] else []
         return TargetInfo(
             host=row["host"],
             ports=ports,

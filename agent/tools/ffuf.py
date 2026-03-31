@@ -61,9 +61,17 @@ def run(url: str, wordlist: str = "") -> str:
 
     output_path = log_path("ffuf.json")
     cmd = [
-        "ffuf", "-u", url, "-w", wordlist,
-        "-mc", "200,204,301,302,307,403",
-        "-o", output_path, "-of", "json",
+        "ffuf",
+        "-u",
+        url,
+        "-w",
+        wordlist,
+        "-mc",
+        "200,204,301,302,307,403",
+        "-o",
+        output_path,
+        "-of",
+        "json",
     ]
 
     logger.info("Running ffuf: %s (wordlist=%s)", url, wordlist)

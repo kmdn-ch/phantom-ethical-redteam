@@ -21,7 +21,9 @@ def _build_linear_graph():
     g = AttackGraph()
     host = g.add_node(GraphNode(id="h1", node_type=NodeType.HOST, label="10.0.0.1"))
     svc = g.add_node(GraphNode(id="s1", node_type=NodeType.SERVICE, label="http:80"))
-    vuln = g.add_node(GraphNode(id="v1", node_type=NodeType.VULNERABILITY, label="SQLi"))
+    vuln = g.add_node(
+        GraphNode(id="v1", node_type=NodeType.VULNERABILITY, label="SQLi")
+    )
     acc = g.add_node(GraphNode(id="a1", node_type=NodeType.ACCESS, label="shell"))
 
     g.add_edge(GraphEdge(source_id="h1", target_id="s1", edge_type=EdgeType.RUNS_ON))
@@ -158,7 +160,9 @@ def test_node_roundtrip():
 
 
 def test_edge_roundtrip():
-    e = GraphEdge(source_id="a", target_id="b", edge_type=EdgeType.GRANTS, label="ssh key")
+    e = GraphEdge(
+        source_id="a", target_id="b", edge_type=EdgeType.GRANTS, label="ssh key"
+    )
     d = e.to_dict()
     assert d["edge_type"] == "grants"
     r = GraphEdge.from_dict(d)

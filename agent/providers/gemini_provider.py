@@ -14,7 +14,6 @@ _TYPE_MAP = {
 
 
 class GeminiProvider(BaseLLMProvider):
-
     DEFAULT_MODEL = "gemini-3.0-pro"
 
     def __init__(self, api_key: str, model: str = None):
@@ -133,18 +132,25 @@ class GeminiProvider(BaseLLMProvider):
             parts = response.candidates[0].content.parts
         except (IndexError, AttributeError):
             import logging
+
             logging.getLogger(__name__).error("Gemini returned no candidates")
             return [], []
 
         for i, part in enumerate(parts):
             if hasattr(part, "text") and part.text:
                 text_blocks.append(part.text)
-            if hasattr(part, "function_call") and part.function_call and part.function_call.name:
+            if (
+                hasattr(part, "function_call")
+                and part.function_call
+                and part.function_call.name
+            ):
                 fc = part.function_call
-                tool_calls.append({
-                    "id": f"gemini-{fc.name}-{i}",
-                    "name": fc.name,
-                    "input": dict(fc.args),
-                })
+                tool_calls.append(
+                    {
+                        "id": f"gemini-{fc.name}-{i}",
+                        "name": fc.name,
+                        "input": dict(fc.args),
+                    }
+                )
 
         return text_blocks, tool_calls

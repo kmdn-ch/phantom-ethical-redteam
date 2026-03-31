@@ -23,13 +23,14 @@ _SEVERITY_RE = re.compile(
 )
 
 # Rate-limit signal detection — triggers auto stealth downgrade
-_RATE_LIMIT_RE = re.compile(r"(429|rate.limit|too many requests|\[WARN\].*429)", re.IGNORECASE)
-_RATE_LIMIT_THRESHOLD = 3   # consecutive tool results with rate-limit signals
+_RATE_LIMIT_RE = re.compile(
+    r"(429|rate.limit|too many requests|\[WARN\].*429)", re.IGNORECASE
+)
+_RATE_LIMIT_THRESHOLD = 3  # consecutive tool results with rate-limit signals
 _RATE_LIMIT_AUTO_PROFILE = "stealthy"
 
 
 class AgentClient:
-
     def __init__(self, config: dict):
         self.provider = get_provider(config)
         self.raw_tools = ALL_TOOLS
@@ -46,15 +47,22 @@ class AgentClient:
         # Rate-limit detection
         self._rate_limit_count = 0
 
-    def _compact_old_tool_results(self, messages: list[dict], keep_last_n: int = 3) -> list[dict]:
+    def _compact_old_tool_results(
+        self, messages: list[dict], keep_last_n: int = 3
+    ) -> list[dict]:
         """Truncate content of old tool_result blocks to avoid context overflow."""
         tool_result_indices = [
-            i for i, m in enumerate(messages)
+            i
+            for i, m in enumerate(messages)
             if m.get("role") == "user"
             and isinstance(m.get("content"), list)
             and any(b.get("type") == "tool_result" for b in m["content"])
         ]
-        to_compact = set(tool_result_indices[:-keep_last_n]) if len(tool_result_indices) > keep_last_n else set()
+        to_compact = (
+            set(tool_result_indices[:-keep_last_n])
+            if len(tool_result_indices) > keep_last_n
+            else set()
+        )
         if not to_compact:
             return messages
 
@@ -66,7 +74,11 @@ class AgentClient:
                     if block.get("type") == "tool_result":
                         content = str(block.get("content", ""))
                         if len(content) > self.compact_max_chars:
-                            block = {**block, "content": content[:self.compact_max_chars] + " [...compacted]"}
+                            block = {
+                                **block,
+                                "content": content[: self.compact_max_chars]
+                                + " [...compacted]",
+                            }
                     compacted.append(block)
                 result.append({**msg, "content": compacted})
             else:
@@ -87,7 +99,9 @@ class AgentClient:
         # Validate input is a dict (LLM may return malformed arguments)
         tool_input = tc.get("input")
         if not isinstance(tool_input, dict):
-            logger.warning("Tool %s received non-dict input: %s", tc["name"], type(tool_input))
+            logger.warning(
+                "Tool %s received non-dict input: %s", tc["name"], type(tool_input)
+            )
             return {
                 "type": "tool_result",
                 "tool_use_id": tc["id"],
@@ -96,7 +110,9 @@ class AgentClient:
 
         try:
             result = tool_func(**tool_input)
-            logger.debug("AUDIT tool=%s params=%s status=ok", tc["name"], list(tool_input.keys()))
+            logger.debug(
+                "AUDIT tool=%s params=%s status=ok", tc["name"], list(tool_input.keys())
+            )
             return {
                 "type": "tool_result",
                 "tool_use_id": tc["id"],
@@ -117,7 +133,9 @@ class AgentClient:
             return [self._execute_tool(tool_calls[0])]
 
         results = [None] * len(tool_calls)
-        with ThreadPoolExecutor(max_workers=min(len(tool_calls), self.max_parallel)) as executor:
+        with ThreadPoolExecutor(
+            max_workers=min(len(tool_calls), self.max_parallel)
+        ) as executor:
             future_to_idx = {
                 executor.submit(self._execute_tool, tc): i
                 for i, tc in enumerate(tool_calls)
@@ -154,14 +172,23 @@ class AgentClient:
         self._turn_count += 1
         # Proactive context compaction based on estimated size
         estimated_tokens = self._estimate_tokens(messages) + len(system_prompt) // 4
-        logger.info("Turn %d — estimated context size: ~%d tokens", self._turn_count, estimated_tokens)
+        logger.info(
+            "Turn %d — estimated context size: ~%d tokens",
+            self._turn_count,
+            estimated_tokens,
+        )
         if estimated_tokens > 50000:
-            logger.info("Context large (~%dk tokens), aggressive compaction", estimated_tokens // 1000)
+            logger.info(
+                "Context large (~%dk tokens), aggressive compaction",
+                estimated_tokens // 1000,
+            )
             messages = self._compact_old_tool_results(messages, keep_last_n=2)
         else:
             messages = self._compact_old_tool_results(messages)
 
-        text_blocks, tool_calls = self.provider.call_with_retry(messages, system_prompt, self.tools)
+        text_blocks, tool_calls = self.provider.call_with_retry(
+            messages, system_prompt, self.tools
+        )
 
         new_messages = messages.copy()
 
@@ -177,20 +204,25 @@ class AgentClient:
             turn_findings += self._count_findings_in_text(text)
 
         for tc in tool_calls:
-            assistant_blocks.append({
-                "type": "tool_use",
-                "id": tc["id"],
-                "name": tc["name"],
-                "input": tc["input"],
-            })
+            assistant_blocks.append(
+                {
+                    "type": "tool_use",
+                    "id": tc["id"],
+                    "name": tc["name"],
+                    "input": tc["input"],
+                }
+            )
 
         if assistant_blocks:
             new_messages.append({"role": "assistant", "content": assistant_blocks})
 
         # Execute tools (parallel if multiple)
         if tool_calls:
-            logger.info("Executing %d tool(s): %s",
-                       len(tool_calls), [tc["name"] for tc in tool_calls])
+            logger.info(
+                "Executing %d tool(s): %s",
+                len(tool_calls),
+                [tc["name"] for tc in tool_calls],
+            )
             tool_names = [tc["name"] for tc in tool_calls]
             print(f"  >> Running: {', '.join(tool_names)}")
             tool_results = self._execute_tools_parallel(tool_calls)
@@ -207,29 +239,35 @@ class AgentClient:
             # Auto-downgrade stealth profile after repeated rate-limit signals
             if self._rate_limit_count >= _RATE_LIMIT_THRESHOLD:
                 try:
-                    from tools.stealth import set_profile as _set_profile, get_profile_name as _get_name
+                    from tools.stealth import (
+                        set_profile as _set_profile,
+                        get_profile_name as _get_name,
+                    )
+
                     if _get_name() not in ("silent", "stealthy"):
                         _set_profile(_RATE_LIMIT_AUTO_PROFILE)
                         logger.warning(
                             "Auto-downgraded stealth profile to '%s' after %d rate-limit signals",
-                            _RATE_LIMIT_AUTO_PROFILE, self._rate_limit_count,
+                            _RATE_LIMIT_AUTO_PROFILE,
+                            self._rate_limit_count,
                         )
-                        new_messages.append({
-                            "role": "user",
-                            "content": (
-                                f"[SYSTEM] Target is rate-limiting requests ({self._rate_limit_count} signals). "
-                                f"Stealth profile auto-set to '{_RATE_LIMIT_AUTO_PROFILE}'. "
-                                "Introduce longer delays between tool calls and avoid burst scanning."
-                            ),
-                        })
+                        new_messages.append(
+                            {
+                                "role": "user",
+                                "content": (
+                                    f"[SYSTEM] Target is rate-limiting requests ({self._rate_limit_count} signals). "
+                                    f"Stealth profile auto-set to '{_RATE_LIMIT_AUTO_PROFILE}'. "
+                                    "Introduce longer delays between tool calls and avoid burst scanning."
+                                ),
+                            }
+                        )
                 except ImportError:
                     pass
                 self._rate_limit_count = 0  # reset after action
 
             # Also count non-empty tool results as partial progress (reduces stall sensitivity)
             non_empty_results = sum(
-                1 for tr in tool_results
-                if len(str(tr.get("content", ""))) > 50
+                1 for tr in tool_results if len(str(tr.get("content", ""))) > 50
             )
             if non_empty_results > 0 and turn_findings == 0:
                 self._stall_count = max(0, self._stall_count - 1)
@@ -256,8 +294,12 @@ class AgentClient:
                 "(3) If all vectors exhausted, proceed to reporting. "
                 "Do NOT repeat the same scans."
             )
-            logger.warning("Stall detected: %d turns without findings", self._stall_count)
-            print(f"\n  ⚠ Stall detected — {self._stall_count} turns with no new findings. Injecting pivot guidance.")
+            logger.warning(
+                "Stall detected: %d turns without findings", self._stall_count
+            )
+            print(
+                f"\n  ⚠ Stall detected — {self._stall_count} turns with no new findings. Injecting pivot guidance."
+            )
             new_messages.append({"role": "user", "content": stall_msg})
             self._stall_count = 0  # Reset after injection
 
@@ -291,7 +333,11 @@ class AgentClient:
         try:
             with open(state_path, encoding="utf-8") as f:
                 state = json.load(f)
-            if not isinstance(state, dict) or "turn" not in state or "messages" not in state:
+            if (
+                not isinstance(state, dict)
+                or "turn" not in state
+                or "messages" not in state
+            ):
                 logger.warning("Corrupted state.json — missing required keys")
                 return None
             return state

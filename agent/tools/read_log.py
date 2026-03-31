@@ -68,9 +68,14 @@ def run(filename: str = "") -> str:
 
             if len(parsed) > 1:
                 # Detect nuclei JSON (has "info" key with severity)
-                is_nuclei = any("info" in e and "severity" in (e.get("info") or {}) for e in parsed[:5])
+                is_nuclei = any(
+                    "info" in e and "severity" in (e.get("info") or {})
+                    for e in parsed[:5]
+                )
                 if is_nuclei:
-                    summary = f"Nuclei results -- {filename} -- {len(parsed)} findings:\n"
+                    summary = (
+                        f"Nuclei results -- {filename} -- {len(parsed)} findings:\n"
+                    )
                     for entry in parsed[:20]:
                         info = entry.get("info", {})
                         classification = info.get("classification") or {}
@@ -106,27 +111,51 @@ def run(filename: str = "") -> str:
                 data = parsed[0]
                 results = data.get("results", [])
                 if results:
-                    summary = f"Ffuf results -- {filename} -- {len(results)} entries:\n\n"
+                    summary = (
+                        f"Ffuf results -- {filename} -- {len(results)} entries:\n\n"
+                    )
                     # Build aligned table
                     col_status = 8
-                    col_url = max(20, min(60, max(
-                        len(str(r.get("url", (r.get("input") or {}).get("FUZZ", "?"))))
-                        for r in results[:20]
-                    ))) + 2
-                    summary += f"  {'STATUS':<{col_status}}{'URL':<{col_url}}{'LENGTH':>8}\n"
+                    col_url = (
+                        max(
+                            20,
+                            min(
+                                60,
+                                max(
+                                    len(
+                                        str(
+                                            r.get(
+                                                "url",
+                                                (r.get("input") or {}).get("FUZZ", "?"),
+                                            )
+                                        )
+                                    )
+                                    for r in results[:20]
+                                ),
+                            ),
+                        )
+                        + 2
+                    )
+                    summary += (
+                        f"  {'STATUS':<{col_status}}{'URL':<{col_url}}{'LENGTH':>8}\n"
+                    )
                     summary += f"  {'-' * col_status}{'-' * col_url}{'-' * 8}\n"
                     for r in results[:20]:
                         status = str(r.get("status", "?"))
                         url = r.get("url", (r.get("input") or {}).get("FUZZ", "?"))
                         length = str(r.get("length", "?"))
-                        summary += f"  {status:<{col_status}}{url:<{col_url}}{length:>8}\n"
+                        summary += (
+                            f"  {status:<{col_status}}{url:<{col_url}}{length:>8}\n"
+                        )
                     if len(results) > 20:
                         summary += f"\n  ... +{len(results) - 20} more"
                     return summary.strip()
                 return f"{filename}:\n{json.dumps(data, indent=2)[:3000]}"
 
         # Plain text
-        line_count = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
+        line_count = content.count("\n") + (
+            1 if content and not content.endswith("\n") else 0
+        )
         file_size = _human_size(len(content.encode("utf-8", errors="replace")))
         header = f"{filename} -- {file_size}, {line_count} lines:\n\n"
         if len(content) > 3000:

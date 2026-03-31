@@ -86,7 +86,9 @@ class MissionMemory:
             )
         else:
             self.target_map[key] = target_info
-        logger.debug("Target updated: %s (%d ports)", key, len(self.target_map[key].ports))
+        logger.debug(
+            "Target updated: %s (%d ports)", key, len(self.target_map[key].ports)
+        )
 
     # ------------------------------------------------------------------
     # Queries
@@ -108,9 +110,7 @@ class MissionMemory:
             if f.target:
                 hosts_with_findings.add(f.target)
         return [
-            t
-            for t in self.target_map.values()
-            if t.host not in hosts_with_findings
+            t for t in self.target_map.values() if t.host not in hosts_with_findings
         ]
 
     def findings_by_severity(self) -> dict[str, list[Finding]]:
@@ -120,9 +120,7 @@ class MissionMemory:
         for f in self.findings.values():
             grouped[f.severity.lower()].append(f)
         # Return only populated buckets, in severity order
-        return {
-            sev: grouped[sev] for sev in severity_order if sev in grouped
-        }
+        return {sev: grouped[sev] for sev in severity_order if sev in grouped}
 
     def findings_for_target(self, host: str) -> list[Finding]:
         """Return all findings associated with a specific target host."""
@@ -149,9 +147,7 @@ class MissionMemory:
                 for f in items:
                     cve = f" ({f.cve_id})" if f.cve_id else ""
                     cvss = f" CVSS:{f.cvss}" if f.cvss is not None else ""
-                    lines.append(
-                        f"- [{sev.upper()}] {f.title} @ {f.target}{cve}{cvss}"
-                    )
+                    lines.append(f"- [{sev.upper()}] {f.title} @ {f.target}{cve}{cvss}")
             parts.append("\n".join(lines))
 
         # --- Section 2: Target map ---

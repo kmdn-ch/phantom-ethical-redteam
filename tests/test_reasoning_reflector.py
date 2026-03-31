@@ -62,7 +62,9 @@ def test_parse_reflection_empty_block():
 
 def test_parse_reflection_colon_in_value():
     r = _make_reflector()
-    text = "<reflection>\nprogress: Target at http://10.0.0.1:8080 scanned\n</reflection>"
+    text = (
+        "<reflection>\nprogress: Target at http://10.0.0.1:8080 scanned\n</reflection>"
+    )
     result = r.parse_reflection(text)
     assert result is not None
     assert "http://10.0.0.1:8080" in result["progress"]

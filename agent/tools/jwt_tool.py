@@ -16,10 +16,24 @@ logger = logging.getLogger(__name__)
 
 # Common weak secrets for brute force
 WEAK_SECRETS = [
-    "secret", "password", "123456", "admin", "key", "test",
-    "jwt_secret", "changeme", "supersecret", "qwerty",
-    "jwt", "token", "default", "example", "mysecret",
-    "your-256-bit-secret", "secret123", "passw0rd",
+    "secret",
+    "password",
+    "123456",
+    "admin",
+    "key",
+    "test",
+    "jwt_secret",
+    "changeme",
+    "supersecret",
+    "qwerty",
+    "jwt",
+    "token",
+    "default",
+    "example",
+    "mysecret",
+    "your-256-bit-secret",
+    "secret123",
+    "passw0rd",
 ]
 
 
@@ -93,7 +107,7 @@ def run(target: str = "", token: str = "", action: str = "analyze") -> str:
         try:
             resp = retry_request(target, headers=stealth_headers(), timeout=10)
             # Look for JWT in response headers and body
-            jwt_pattern = r'eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+'
+            jwt_pattern = r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"
             found_tokens = re.findall(jwt_pattern, resp.text)
             for h_name, h_val in resp.headers.items():
                 found_tokens.extend(re.findall(jwt_pattern, h_val))
@@ -104,7 +118,9 @@ def run(target: str = "", token: str = "", action: str = "analyze") -> str:
             token = found_tokens[0]
             findings.append(f"[INFO] JWT found at {target}")
             if len(found_tokens) > 1:
-                findings.append(f"[INFO] {len(found_tokens)} JWT tokens found in response")
+                findings.append(
+                    f"[INFO] {len(found_tokens)} JWT tokens found in response"
+                )
         except Exception as e:
             return f"Failed to fetch JWT from {target}: {e}"
 
@@ -117,7 +133,9 @@ def run(target: str = "", token: str = "", action: str = "analyze") -> str:
     except (ValueError, json.JSONDecodeError) as e:
         return f"Invalid JWT: {e}"
 
-    findings.append(f"[INFO] JWT Header: alg={header.get('alg')}, typ={header.get('typ')}")
+    findings.append(
+        f"[INFO] JWT Header: alg={header.get('alg')}, typ={header.get('typ')}"
+    )
     findings.append(f"[INFO] JWT Payload keys: {list(payload.keys())}")
 
     # Check for sensitive claims
@@ -129,6 +147,7 @@ def run(target: str = "", token: str = "", action: str = "analyze") -> str:
         findings.append(f"[INFO] Subject: {payload['sub']}")
     if "exp" in payload:
         import time
+
         if payload["exp"] < time.time():
             findings.append("[MEDIUM] Token is EXPIRED but may still be accepted")
     if "iat" not in payload:
@@ -141,9 +160,13 @@ def run(target: str = "", token: str = "", action: str = "analyze") -> str:
     if alg == "NONE":
         findings.append("[CRITICAL] Algorithm is 'none' — token is unsigned!")
     elif alg == "HS256":
-        findings.append("[INFO] Algorithm: HS256 (symmetric) — weak secret may be crackable")
+        findings.append(
+            "[INFO] Algorithm: HS256 (symmetric) — weak secret may be crackable"
+        )
     elif alg in ("RS256", "ES256"):
-        findings.append(f"[INFO] Algorithm: {alg} (asymmetric) — check for key confusion")
+        findings.append(
+            f"[INFO] Algorithm: {alg} (asymmetric) — check for key confusion"
+        )
 
     # Action: crack
     if action in ("crack", "analyze", "tamper"):
@@ -151,7 +174,9 @@ def run(target: str = "", token: str = "", action: str = "analyze") -> str:
             cracked = _brute_secret(token)
             if cracked:
                 findings.append(f"[CRITICAL] JWT secret CRACKED: '{cracked}'")
-                findings.append(f"[CRITICAL] Attacker can forge arbitrary tokens with this secret")
+                findings.append(
+                    f"[CRITICAL] Attacker can forge arbitrary tokens with this secret"
+                )
 
                 # If tamper action, forge a modified token
                 if action == "tamper":
@@ -174,17 +199,25 @@ def run(target: str = "", token: str = "", action: str = "analyze") -> str:
     if action in ("forge", "analyze"):
         none_token = _forge_none_alg(payload)
         findings.append(f"[HIGH] alg=none forged token: {none_token[:80]}...")
-        findings.append("[HIGH] Test this token against the API — if accepted, authentication is broken")
+        findings.append(
+            "[HIGH] Test this token against the API — if accepted, authentication is broken"
+        )
 
     # Save results
     result_path = log_path("jwt_analysis.json")
     try:
         with open(result_path, "w", encoding="utf-8") as f:
-            json.dump({"header": header, "payload": payload, "findings": findings}, f, indent=2)
+            json.dump(
+                {"header": header, "payload": payload, "findings": findings},
+                f,
+                indent=2,
+            )
     except Exception:
         pass
 
-    return f"JWT Analysis — {len(findings)} findings:\n" + "\n".join(f"  {f}" for f in findings)
+    return f"JWT Analysis — {len(findings)} findings:\n" + "\n".join(
+        f"  {f}" for f in findings
+    )
 
 
 TOOL_SPEC = {
@@ -197,7 +230,10 @@ TOOL_SPEC = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "target": {"type": "string", "description": "URL to fetch JWT from (for 'fetch' action)"},
+            "target": {
+                "type": "string",
+                "description": "URL to fetch JWT from (for 'fetch' action)",
+            },
             "token": {"type": "string", "description": "JWT token to analyze"},
             "action": {
                 "type": "string",

@@ -29,6 +29,7 @@ def retry_request(
     # Integrate stealth headers if not explicitly provided
     try:
         from .stealth import stealth_headers, get_proxy
+
         if "headers" not in kwargs:
             kwargs["headers"] = stealth_headers()
         proxies = get_proxy()
@@ -47,7 +48,9 @@ def retry_request(
             _global_limiter.wait()
 
         try:
-            resp = requests.request(method, url, timeout=timeout, verify=verify, **kwargs)
+            resp = requests.request(
+                method, url, timeout=timeout, verify=verify, **kwargs
+            )
 
             # 429 Too Many Requests — retryable; honour Retry-After header
             if resp.status_code == 429:
@@ -58,12 +61,16 @@ def retry_request(
                     try:
                         wait = float(retry_after)
                     except ValueError:
-                        wait = backoff_factor ** attempt
+                        wait = backoff_factor**attempt
                 else:
-                    wait = backoff_factor ** attempt
+                    wait = backoff_factor**attempt
                 logger.warning(
                     "HTTP %s %s — 429 rate limited (attempt %d/%d), waiting %.1fs",
-                    method, url, attempt + 1, max_retries + 1, wait,
+                    method,
+                    url,
+                    attempt + 1,
+                    max_retries + 1,
+                    wait,
                 )
                 if attempt < max_retries:
                     time.sleep(wait)
@@ -75,7 +82,9 @@ def retry_request(
             if 400 <= resp.status_code < 500:
                 logger.error(
                     "HTTP %s %s — client error %d (not retryable): %s",
-                    method, url, resp.status_code,
+                    method,
+                    url,
+                    resp.status_code,
                     f"{resp.status_code} Client Error for url: {url}",
                 )
                 resp.raise_for_status()
@@ -87,39 +96,61 @@ def retry_request(
             return resp
         except requests.exceptions.HTTPError as exc:
             # 4xx (non-429): permanent failure, raise immediately without retry
-            if exc.response is not None and 400 <= exc.response.status_code < 500 and exc.response.status_code != 429:
+            if (
+                exc.response is not None
+                and 400 <= exc.response.status_code < 500
+                and exc.response.status_code != 429
+            ):
                 raise
             # 5xx: transient, fall through to retry logic
             last_exc = exc
             if attempt < max_retries:
-                wait = backoff_factor ** attempt
+                wait = backoff_factor**attempt
                 logger.warning(
                     "HTTP %s %s failed (attempt %d/%d): %s — retrying in %.1fs",
-                    method, url, attempt + 1, max_retries + 1, exc, wait,
+                    method,
+                    url,
+                    attempt + 1,
+                    max_retries + 1,
+                    exc,
+                    wait,
                 )
                 time.sleep(wait)
             else:
                 logger.error(
                     "HTTP %s %s failed after %d attempts: %s",
-                    method, url, max_retries + 1, exc,
+                    method,
+                    url,
+                    max_retries + 1,
+                    exc,
                 )
         except (requests.ConnectionError, requests.Timeout) as exc:
             # Connection/timeout errors are transient — retry
             last_exc = exc
             if attempt < max_retries:
-                wait = backoff_factor ** attempt
+                wait = backoff_factor**attempt
                 logger.warning(
                     "HTTP %s %s failed (attempt %d/%d): %s — retrying in %.1fs",
-                    method, url, attempt + 1, max_retries + 1, exc, wait,
+                    method,
+                    url,
+                    attempt + 1,
+                    max_retries + 1,
+                    exc,
+                    wait,
                 )
                 time.sleep(wait)
             else:
                 logger.error(
                     "HTTP %s %s failed after %d attempts: %s",
-                    method, url, max_retries + 1, exc,
+                    method,
+                    url,
+                    max_retries + 1,
+                    exc,
                 )
         except requests.RequestException as exc:
             # Other request errors — not retryable
-            logger.error("HTTP %s %s — request error (not retryable): %s", method, url, exc)
+            logger.error(
+                "HTTP %s %s — request error (not retryable): %s", method, url, exc
+            )
             raise
     raise last_exc

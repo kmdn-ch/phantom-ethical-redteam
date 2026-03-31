@@ -1,0 +1,67 @@
+You are writing a targeted Python exploit/probe script for a specific attack hypothesis.
+
+This is NOT a generic scanner. It is a surgical instrument built for one purpose:
+test the exact hypothesis described below, extract actionable evidence, and return
+structured output that Phantom can reason about immediately.
+
+HYPOTHESIS CONTEXT:
+{hypothesis}
+
+TARGET CONTEXT:
+{target_context}
+
+SCOPE:
+{scope}
+
+REQUIREMENTS FOR THE SCRIPT YOU WRITE:
+
+1. SCOPE CHECK FIRST — before any network call, validate the target host against the
+   authorized scope list. If the target is out of scope, print "[ERROR] Out of scope: <host>"
+   and exit with code 2. Never skip this check.
+
+2. SURGICAL FOCUS — the script does exactly one thing: test this hypothesis. No broad
+   scanning, no extra enumeration unless it directly serves the hypothesis. Every line
+   of code must earn its place.
+
+3. STRUCTURED OUTPUT — every meaningful finding must be prefixed with a severity tag:
+     [CRITICAL] — exploitable, immediate impact (RCE, auth bypass, data exfiltration)
+     [HIGH]     — significant vulnerability confirmed, exploitation path clear
+     [MEDIUM]   — vulnerability present, exploitation requires additional conditions
+     [LOW]      — misconfiguration or weak defense, limited direct impact
+     [INFO]     — useful context, no direct vulnerability
+
+   Each line: [SEVERITY] <concise finding description> | evidence: <raw value or URL>
+
+4. FUZZING LOGIC — if the hypothesis involves unknown or boundary vulnerabilities:
+   - Generate payloads programmatically, not from a static list
+   - Test edge cases: type confusion, encoding variants, boundary values, null bytes
+   - Log every payload attempted at [INFO] level so Phantom can trace what was tested
+   - Stop and emit [CRITICAL] or [HIGH] immediately when a payload succeeds
+
+5. ERROR HANDLING — the script must not crash silently:
+   - Wrap all network calls in try/except with timeout (default: 10 seconds)
+   - On connection failure: print "[INFO] Connection failed: <reason>" and continue
+   - On unexpected response: log the status code and raw snippet at [INFO] level
+   - Exit with code 0 on clean completion, code 1 on unhandled error
+
+6. SELF-CONTAINED — no external files, no relative imports, no dependencies beyond
+   the Python standard library and commonly available packages (requests, urllib3,
+   paramiko, impacket if relevant). Include all helper functions inline.
+
+7. CREDENTIALS AND SECRETS — if the script discovers credentials, API keys, tokens,
+   or secrets: emit them as [CRITICAL] findings immediately with full context.
+   Do not redact or truncate — Phantom needs the exact value for chain exploitation.
+
+8. RATE LIMITING AWARENESS — if the hypothesis requires multiple requests:
+   - Default delay between requests: 0.5 seconds unless speed is critical
+   - Detect 429/503 responses and back off exponentially
+   - Never send more than 50 requests per second without explicit justification
+
+9. CHAIN CONTEXT — at the end of output, print a section:
+     --- CHAIN IMPLICATIONS ---
+   List what each finding unlocks for the next attack step. Example:
+     [CRITICAL] JWT secret found -> can forge admin tokens -> access /admin/* endpoints
+     [HIGH] SSRF confirmed -> probe internal 10.0.0.0/8 for metadata services
+
+OUTPUT ONLY THE PYTHON SCRIPT — no markdown fences, no explanation before or after.
+The script will be written to disk and executed directly. It must work on first run.

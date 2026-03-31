@@ -23,7 +23,9 @@ _TARGET_RE = re.compile(r"^[A-Za-z0-9._:\-/]+$")
 _PORTS_RE = re.compile(r"^[0-9,\-]+$")
 
 
-def run(target: str, ports: str = "-", scan_type: str = "service", timeout: int = 300) -> str:
+def run(
+    target: str, ports: str = "-", scan_type: str = "service", timeout: int = 300
+) -> str:
     guard = scope_guard(target)
     if guard:
         return guard
@@ -66,18 +68,26 @@ def run(target: str, ports: str = "-", scan_type: str = "service", timeout: int 
         os_match = re.search(r"OS details:\s*(.+)", output)
         time_match = re.search(r"scanned in\s+([\d.]+)\s*s", output)
 
-        summary = f"Nmap {scan_type} scan -- {target} -- {len(open_ports)} open ports:\n"
+        summary = (
+            f"Nmap {scan_type} scan -- {target} -- {len(open_ports)} open ports:\n"
+        )
 
         if open_ports:
             # Build aligned table
             header = ("PORT", "SERVICE", "VERSION")
-            col_port = max(len(header[0]), max(len(p) for p, _, _ in open_ports[:30])) + 2
-            col_svc = max(len(header[1]), max(len(s) for _, s, _ in open_ports[:30])) + 2
+            col_port = (
+                max(len(header[0]), max(len(p) for p, _, _ in open_ports[:30])) + 2
+            )
+            col_svc = (
+                max(len(header[1]), max(len(s) for _, s, _ in open_ports[:30])) + 2
+            )
 
             summary += f"\n  {header[0]:<{col_port}}{header[1]:<{col_svc}}{header[2]}\n"
             summary += f"  {'-' * col_port}{'-' * col_svc}{'-' * 20}\n"
             for port, service, version in open_ports[:30]:
-                summary += f"  {port:<{col_port}}{service:<{col_svc}}{version.strip()}\n"
+                summary += (
+                    f"  {port:<{col_port}}{service:<{col_svc}}{version.strip()}\n"
+                )
             if len(open_ports) > 30:
                 summary += f"\n  ... +{len(open_ports) - 30} more\n"
         else:

@@ -1,6 +1,5 @@
 """Dynamic social engineering template generator (educational only)."""
 
-
 SCENARIOS = {
     "phishing_email": {
         "subject": "Urgent: Security Alert for your {target} account",

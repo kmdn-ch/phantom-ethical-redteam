@@ -19,22 +19,45 @@ def _check_linux_privesc() -> list:
     try:
         result = subprocess.run(
             ["find", "/", "-perm", "-4000", "-type", "f"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         suid_bins = [l.strip() for l in result.stdout.splitlines() if l.strip()]
         # Known exploitable SUID binaries
         exploitable = [
-            "nmap", "vim", "find", "bash", "more", "less", "nano",
-            "cp", "mv", "awk", "python", "perl", "ruby", "lua",
-            "php", "env", "wget", "curl", "pkexec", "mount",
+            "nmap",
+            "vim",
+            "find",
+            "bash",
+            "more",
+            "less",
+            "nano",
+            "cp",
+            "mv",
+            "awk",
+            "python",
+            "perl",
+            "ruby",
+            "lua",
+            "php",
+            "env",
+            "wget",
+            "curl",
+            "pkexec",
+            "mount",
         ]
-        dangerous = [b for b in suid_bins if any(e in os.path.basename(b) for e in exploitable)]
+        dangerous = [
+            b for b in suid_bins if any(e in os.path.basename(b) for e in exploitable)
+        ]
         if dangerous:
             findings.append(f"[HIGH] Exploitable SUID binaries ({len(dangerous)}):")
             for b in dangerous[:10]:
                 findings.append(f"    {b}")
         else:
-            findings.append(f"[INFO] {len(suid_bins)} SUID binaries found (none obviously exploitable)")
+            findings.append(
+                f"[INFO] {len(suid_bins)} SUID binaries found (none obviously exploitable)"
+            )
     except Exception:
         findings.append("[INFO] Cannot enumerate SUID binaries")
 
@@ -43,18 +66,25 @@ def _check_linux_privesc() -> list:
         if os.access("/etc/passwd", os.W_OK):
             findings.append("[CRITICAL] /etc/passwd is WRITABLE — trivial root")
         if os.access("/etc/shadow", os.R_OK):
-            findings.append("[CRITICAL] /etc/shadow is READABLE — password hash extraction")
+            findings.append(
+                "[CRITICAL] /etc/shadow is READABLE — password hash extraction"
+            )
     except Exception:
         pass
 
     # Sudo permissions
     try:
         result = subprocess.run(
-            ["sudo", "-l"], capture_output=True, text=True, timeout=10,
+            ["sudo", "-l"],
+            capture_output=True,
+            text=True,
+            timeout=10,
             input="",  # Non-interactive
         )
         if "NOPASSWD" in result.stdout:
-            nopasswd = [l.strip() for l in result.stdout.splitlines() if "NOPASSWD" in l]
+            nopasswd = [
+                l.strip() for l in result.stdout.splitlines() if "NOPASSWD" in l
+            ]
             findings.append(f"[HIGH] NOPASSWD sudo entries:")
             for entry in nopasswd[:5]:
                 findings.append(f"    {entry}")
@@ -78,13 +108,17 @@ def _check_linux_privesc() -> list:
         if writable_crons:
             findings.append(f"[HIGH] Writable cron files: {writable_crons}")
         else:
-            findings.append(f"[INFO] {len(cron_files)} cron entries found (none writable)")
+            findings.append(
+                f"[INFO] {len(cron_files)} cron entries found (none writable)"
+            )
     except Exception:
         pass
 
     # Kernel version
     try:
-        result = subprocess.run(["uname", "-r"], capture_output=True, text=True, timeout=5)
+        result = subprocess.run(
+            ["uname", "-r"], capture_output=True, text=True, timeout=5
+        )
         kernel = result.stdout.strip()
         findings.append(f"[INFO] Kernel: {kernel}")
     except Exception:
@@ -93,7 +127,9 @@ def _check_linux_privesc() -> list:
     # Docker socket
     if os.path.exists("/var/run/docker.sock"):
         if os.access("/var/run/docker.sock", os.W_OK):
-            findings.append("[CRITICAL] Docker socket writable — container escape possible")
+            findings.append(
+                "[CRITICAL] Docker socket writable — container escape possible"
+            )
         else:
             findings.append("[MEDIUM] Docker socket exists (check group membership)")
 
@@ -101,12 +137,18 @@ def _check_linux_privesc() -> list:
     home = os.path.expanduser("~")
     ssh_dir = os.path.join(home, ".ssh")
     if os.path.isdir(ssh_dir):
-        keys = [f for f in os.listdir(ssh_dir) if f.startswith("id_") and not f.endswith(".pub")]
+        keys = [
+            f
+            for f in os.listdir(ssh_dir)
+            if f.startswith("id_") and not f.endswith(".pub")
+        ]
         if keys:
             findings.append(f"[MEDIUM] SSH private keys found: {keys}")
         auth_keys = os.path.join(ssh_dir, "authorized_keys")
         if os.path.exists(auth_keys) and os.access(auth_keys, os.W_OK):
-            findings.append("[HIGH] authorized_keys is writable — SSH persistence possible")
+            findings.append(
+                "[HIGH] authorized_keys is writable — SSH persistence possible"
+            )
 
     # World-writable directories in PATH
     path_dirs = os.environ.get("PATH", "").split(":")
@@ -123,12 +165,18 @@ def _check_windows_privesc() -> list:
 
     # Current user info
     try:
-        result = subprocess.run(["whoami", "/all"], capture_output=True, text=True, timeout=10)
+        result = subprocess.run(
+            ["whoami", "/all"], capture_output=True, text=True, timeout=10
+        )
         output = result.stdout
         if "SeImpersonatePrivilege" in output:
-            findings.append("[HIGH] SeImpersonatePrivilege enabled — potato attacks possible")
+            findings.append(
+                "[HIGH] SeImpersonatePrivilege enabled — potato attacks possible"
+            )
         if "SeDebugPrivilege" in output:
-            findings.append("[CRITICAL] SeDebugPrivilege enabled — process injection possible")
+            findings.append(
+                "[CRITICAL] SeDebugPrivilege enabled — process injection possible"
+            )
         if "SeBackupPrivilege" in output:
             findings.append("[HIGH] SeBackupPrivilege enabled — file read bypass")
         if "BUILTIN\\Administrators" in output:
@@ -146,10 +194,16 @@ def _check_windows_privesc() -> list:
     try:
         result = subprocess.run(
             ["wmic", "service", "get", "name,displayname,pathname,startmode"],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
         for line in result.stdout.splitlines():
-            if "C:\\" in line and '"' not in line and " " in line.split("C:\\")[1].split(".exe")[0]:
+            if (
+                "C:\\" in line
+                and '"' not in line
+                and " " in line.split("C:\\")[1].split(".exe")[0]
+            ):
                 findings.append(f"[HIGH] Unquoted service path: {line.strip()[:100]}")
     except Exception:
         pass
@@ -157,12 +211,21 @@ def _check_windows_privesc() -> list:
     # AlwaysInstallElevated
     try:
         result = subprocess.run(
-            ["reg", "query", "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer",
-             "/v", "AlwaysInstallElevated"],
-            capture_output=True, text=True, timeout=5,
+            [
+                "reg",
+                "query",
+                "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer",
+                "/v",
+                "AlwaysInstallElevated",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if "0x1" in result.stdout:
-            findings.append("[CRITICAL] AlwaysInstallElevated is ON — MSI privilege escalation")
+            findings.append(
+                "[CRITICAL] AlwaysInstallElevated is ON — MSI privilege escalation"
+            )
     except Exception:
         pass
 
@@ -170,7 +233,9 @@ def _check_windows_privesc() -> list:
     try:
         result = subprocess.run(
             ["netsh", "wlan", "show", "profiles"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         profiles = re.findall(r":\s+(.+)", result.stdout)
         if profiles:
@@ -197,7 +262,10 @@ def run(check: str = "auto") -> str:
     if check == "linpeas":
         try:
             result = subprocess.run(
-                ["bash", "linpeas.sh"], capture_output=True, text=True, timeout=300,
+                ["bash", "linpeas.sh"],
+                capture_output=True,
+                text=True,
+                timeout=300,
             )
             output_path = log_path("linpeas_output.txt")
             with open(output_path, "w", encoding="utf-8") as f:
@@ -207,7 +275,10 @@ def run(check: str = "auto") -> str:
                 if any(tag in line for tag in ["95%", "99%", "RED/YELLOW"]):
                     findings.append(f"[HIGH] {line.strip()[:120]}")
             if findings:
-                return f"LinPEAS — {len(findings)} high-priority findings:\n" + "\n".join(f"  {f}" for f in findings[:20])
+                return (
+                    f"LinPEAS — {len(findings)} high-priority findings:\n"
+                    + "\n".join(f"  {f}" for f in findings[:20])
+                )
             return f"LinPEAS complete — output saved to {output_path}"
         except FileNotFoundError:
             logger.info("linpeas.sh not found — using built-in checks")
@@ -218,7 +289,10 @@ def run(check: str = "auto") -> str:
     if check == "winpeas":
         try:
             result = subprocess.run(
-                ["winPEASany.exe"], capture_output=True, text=True, timeout=300,
+                ["winPEASany.exe"],
+                capture_output=True,
+                text=True,
+                timeout=300,
             )
             output_path = log_path("winpeas_output.txt")
             with open(output_path, "w", encoding="utf-8") as f:
@@ -236,12 +310,16 @@ def run(check: str = "auto") -> str:
     elif check == "windows":
         findings = _check_windows_privesc()
     else:
-        return f"Unknown check type: {check}. Use: auto, linux, windows, linpeas, winpeas"
+        return (
+            f"Unknown check type: {check}. Use: auto, linux, windows, linpeas, winpeas"
+        )
 
     if not findings:
         return "Privilege escalation check — no findings"
 
-    return f"PrivEsc check ({check}) — {len(findings)} findings:\n" + "\n".join(f"  {f}" for f in findings)
+    return f"PrivEsc check ({check}) — {len(findings)} findings:\n" + "\n".join(
+        f"  {f}" for f in findings
+    )
 
 
 TOOL_SPEC = {

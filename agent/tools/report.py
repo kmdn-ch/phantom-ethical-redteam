@@ -12,9 +12,11 @@ logger = logging.getLogger(__name__)
 # Phantom version (imported at call-time to avoid circular deps)
 # ---------------------------------------------------------------------------
 
+
 def _get_version() -> str:
     try:
         from agent.main import VERSION
+
         return VERSION
     except Exception:
         return "unknown"
@@ -26,10 +28,10 @@ def _get_version() -> str:
 
 SEVERITY_COLORS = {
     "CRITICAL": {"bg": "#dc2626", "fg": "#ffffff"},
-    "HIGH":     {"bg": "#ea580c", "fg": "#ffffff"},
-    "MEDIUM":   {"bg": "#ca8a04", "fg": "#ffffff"},
-    "LOW":      {"bg": "#2563eb", "fg": "#ffffff"},
-    "INFO":     {"bg": "#6b7280", "fg": "#ffffff"},
+    "HIGH": {"bg": "#ea580c", "fg": "#ffffff"},
+    "MEDIUM": {"bg": "#ca8a04", "fg": "#ffffff"},
+    "LOW": {"bg": "#2563eb", "fg": "#ffffff"},
+    "INFO": {"bg": "#6b7280", "fg": "#ffffff"},
 }
 
 
@@ -51,17 +53,18 @@ PHANTOM_BANNER = r"""
 # Markdown -> HTML converter
 # ---------------------------------------------------------------------------
 
+
 def _inline_format(text: str) -> str:
     """Apply inline markdown formatting to already-escaped HTML text."""
     # Bold
-    text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
+    text = re.sub(r"\*\*(.*?)\*\*", r"<strong>\1</strong>", text)
     # Italic (single *)
-    text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<em>\1</em>', text)
+    text = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<em>\1</em>", text)
     # Inline code
-    text = re.sub(r'`(.*?)`', r'<code>\1</code>', text)
+    text = re.sub(r"`(.*?)`", r"<code>\1</code>", text)
     # Links [text](url)
     text = re.sub(
-        r'\[([^\]]+)\]\(([^)]+)\)',
+        r"\[([^\]]+)\]\(([^)]+)\)",
         r'<a href="\2" target="_blank" rel="noopener">\1</a>',
         text,
     )
@@ -103,7 +106,7 @@ def _detect_table_block(lines: list[str], start: int) -> tuple[list[str], int]:
     # Check for separator row (e.g. |---|---|)
     sep_row = raw_rows[1]
     cells = [c.strip() for c in sep_row.strip("|").split("|")]
-    is_sep = all(re.match(r'^:?-{2,}:?$', c) for c in cells)
+    is_sep = all(re.match(r"^:?-{2,}:?$", c) for c in cells)
 
     out = ['<div class="table-wrapper"><table>']
 
@@ -186,7 +189,7 @@ def _md_to_html_body(content: str) -> tuple[str, list[tuple[str, str]]]:
             # fallthrough if not a valid table
 
         # --- Horizontal rule ---
-        if re.match(r'^-{3,}$', stripped) or re.match(r'^\*{3,}$', stripped):
+        if re.match(r"^-{3,}$", stripped) or re.match(r"^\*{3,}$", stripped):
             _close_lists()
             out.append('<hr class="divider">')
             i += 1
@@ -197,7 +200,7 @@ def _md_to_html_body(content: str) -> tuple[str, list[tuple[str, str]]]:
         escaped = _inline_format(escaped)
 
         # --- Headings ---
-        heading_match = re.match(r'^(#{1,4})\s+(.+)$', line)
+        heading_match = re.match(r"^(#{1,4})\s+(.+)$", line)
         if heading_match:
             _close_lists()
             level = len(heading_match.group(1))
@@ -218,7 +221,7 @@ def _md_to_html_body(content: str) -> tuple[str, list[tuple[str, str]]]:
             continue
 
         # --- Ordered list items (1. 2. etc.) ---
-        ol_match = re.match(r'^(\s*)\d+\.\s+(.+)$', line)
+        ol_match = re.match(r"^(\s*)\d+\.\s+(.+)$", line)
         if ol_match:
             indent = len(ol_match.group(1))
             depth = indent // 2 + 1
@@ -235,7 +238,7 @@ def _md_to_html_body(content: str) -> tuple[str, list[tuple[str, str]]]:
             continue
 
         # --- Unordered list items ---
-        ul_match = re.match(r'^(\s*)[-*]\s+(.+)$', line)
+        ul_match = re.match(r"^(\s*)[-*]\s+(.+)$", line)
         if ul_match:
             indent = len(ul_match.group(1))
             depth = indent // 2 + 1
@@ -273,6 +276,7 @@ def _md_to_html_body(content: str) -> tuple[str, list[tuple[str, str]]]:
 # Severity stats extraction
 # ---------------------------------------------------------------------------
 
+
 def _count_severities(content: str) -> dict[str, int]:
     """Count occurrences of [CRITICAL], [HIGH], etc. in the content."""
     counts: dict[str, int] = {}
@@ -300,7 +304,7 @@ def _build_stats_bar(counts: dict[str, int]) -> str:
     return f"""<div class="stats-bar">
   <div class="stats-label">Findings Summary</div>
   <div class="stats-pills">
-    {''.join(pills)}
+    {"".join(pills)}
     <span class="stat-pill stat-total">TOTAL: {total}</span>
   </div>
 </div>"""
@@ -309,6 +313,7 @@ def _build_stats_bar(counts: dict[str, int]) -> str:
 # ---------------------------------------------------------------------------
 # Table of contents builder
 # ---------------------------------------------------------------------------
+
 
 def _build_toc(toc_entries: list[tuple[str, str]]) -> str:
     """Build an HTML table of contents from h2 entries."""
@@ -321,7 +326,7 @@ def _build_toc(toc_entries: list[tuple[str, str]]) -> str:
     return f"""<nav class="toc">
   <div class="toc-title">Table of Contents</div>
   <ol>
-    {''.join(items)}
+    {"".join(items)}
   </ol>
 </nav>"""
 
@@ -689,6 +694,7 @@ tbody tr:last-child td { border-bottom: none; }
 # HTML document builder
 # ---------------------------------------------------------------------------
 
+
 def _build_html_document(title: str, content: str, timestamp: str) -> str:
     """Assemble the complete HTML report document."""
     safe_title = html.escape(title)
@@ -747,6 +753,7 @@ def _build_html_document(title: str, content: str, timestamp: str) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def run(title: str, content: str, generate_pdf: bool = False) -> str:
     """Generate a formatted mission report (Markdown + HTML, optional PDF)."""
     version = _get_version()
@@ -780,7 +787,8 @@ def run(title: str, content: str, generate_pdf: bool = False) -> str:
         try:
             subprocess.run(
                 ["wkhtmltopdf", "--quiet", html_path, pdf_path],
-                capture_output=True, timeout=60,
+                capture_output=True,
+                timeout=60,
             )
             if os.path.exists(pdf_path):
                 result += f"\n  PDF      : {pdf_path}"

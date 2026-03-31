@@ -9,10 +9,10 @@ logger = logging.getLogger(__name__)
 class OpenAIProvider(BaseLLMProvider):
     """Handles OpenAI (ChatGPT), xAI (Grok), and DeepSeek — all OpenAI-compatible APIs."""
 
-    OPENAI_DEFAULT  = "gpt-5.4"
-    GROK_DEFAULT    = "grok-4-20-beta"
+    OPENAI_DEFAULT = "gpt-5.4"
+    GROK_DEFAULT = "grok-4-20-beta"
     DEEPSEEK_DEFAULT = "deepseek-chat-v3.2"
-    GROK_BASE_URL     = "https://api.x.ai/v1"
+    GROK_BASE_URL = "https://api.x.ai/v1"
     DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
     def __init__(self, api_key: str, model: str = None, base_url: str = None):
@@ -50,11 +50,13 @@ class OpenAIProvider(BaseLLMProvider):
                 elif isinstance(content, list):
                     for block in content:
                         if block.get("type") == "tool_result":
-                            converted.append({
-                                "role": "tool",
-                                "tool_call_id": block["tool_use_id"],
-                                "content": block["content"],
-                            })
+                            converted.append(
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": block["tool_use_id"],
+                                    "content": block["content"],
+                                }
+                            )
 
             elif role == "assistant":
                 if isinstance(content, str):
@@ -104,12 +106,16 @@ class OpenAIProvider(BaseLLMProvider):
                 try:
                     args = json.loads(tc.function.arguments)
                 except (json.JSONDecodeError, TypeError) as e:
-                    logger.error("Malformed tool arguments for %s: %s", tc.function.name, e)
+                    logger.error(
+                        "Malformed tool arguments for %s: %s", tc.function.name, e
+                    )
                     args = {}
-                tool_calls.append({
-                    "id": tc.id,
-                    "name": tc.function.name,
-                    "input": args,
-                })
+                tool_calls.append(
+                    {
+                        "id": tc.id,
+                        "name": tc.function.name,
+                        "input": args,
+                    }
+                )
 
         return text_blocks, tool_calls
