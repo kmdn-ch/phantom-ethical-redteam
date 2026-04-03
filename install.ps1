@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Phantom - Ethical RedTeam -- Windows Installer v2.2.1
+    Phantom - Ethical RedTeam -- Windows Installer v3.2.3
 .DESCRIPTION
     Interactive setup: LLM provider, API key, authorized scope, dependencies.
     Run from the repo root: .\install.ps1
@@ -25,7 +25,7 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Phantom - Ethical RedTeam"              -ForegroundColor Cyan
-Write-Host "  Installer v2.2.1 (Windows)"            -ForegroundColor Cyan
+Write-Host "  Installer v3.2.3 (Windows)"            -ForegroundColor Cyan
 Write-Host "========================================"  -ForegroundColor Cyan
 Write-Host ""
 
@@ -336,15 +336,30 @@ Write-Host ""
 Write-Host "[ STEP 3 / 3 ] Installing dependencies" -ForegroundColor Yellow
 Write-Host "-----------------------------------------"
 
-# Python check
-if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-    Write-Host "Python not found -- installing via winget..." -ForegroundColor Yellow
+# Python check -- resolve real interpreter (skip Windows Store stubs)
+$python = $null
+foreach ($cmd in @("python", "python3", "py")) {
+    if (Get-Command $cmd -ErrorAction SilentlyContinue) {
+        try {
+            $ver = & $cmd --version 2>&1
+            if ($ver -match "Python 3\.(\d+)" -and [int]$Matches[1] -ge 11) {
+                $python = $cmd
+                break
+            }
+        } catch {
+            # Windows Store stub or other error -- try next candidate
+        }
+    }
+}
+if (-not $python) {
+    Write-Host "Python 3.11+ not found -- installing via winget..." -ForegroundColor Yellow
     winget install -e --id Python.Python.3.12 --silent
+    $python = "py"
 }
 
 # pip packages
 Write-Host "Installing Python packages..."
-python -m pip install -r requirements.txt -q
+& $python -m pip install -r requirements.txt -q
 
 # nuclei (Windows binary)
 if (-not (Get-Command nuclei -ErrorAction SilentlyContinue)) {
@@ -441,4 +456,4 @@ if ($provider -ne "ollama") {
 }
 $env:PATH += ";$PWD\bin"
 
-& python "agent\main.py" --v3
+& $python "agent\main.py" --v3

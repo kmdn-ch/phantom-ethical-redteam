@@ -285,7 +285,8 @@ function initCharts() {
     const defaults = Chart.defaults;
     defaults.color = '#8b949e';
     defaults.borderColor = '#30363d';
-    defaults.font.family = "'Courier New', monospace";
+    // Use system UI font in charts — monospace is reserved for terminal output only
+    defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
     defaults.font.size = 11;
 
     // Severity donut
@@ -573,11 +574,29 @@ function formatDuration(sec) {
 
 // ---- Mission Control ----
 
+function _validateScope(scope) {
+    if (!scope) return "Enter a target scope before launching.";
+    // Reject obvious shell injection characters
+    if (/[;&|`$(){}]/.test(scope)) return "Scope contains invalid characters.";
+    // Must look like a URL, IP, or CIDR
+    const urlRe = /^https?:\/\/[^\s]+$/i;
+    const ipRe = /^(\d{1,3}\.){3}\d{1,3}(\/\d+)?$/;
+    const domainRe = /^[a-zA-Z0-9][a-zA-Z0-9.\-]*\.[a-zA-Z]{2,}(\/.*)?$/;
+    const lines = scope.split("\n").map(l => l.trim()).filter(l => l && !l.startsWith("#"));
+    for (const line of lines) {
+        if (!urlRe.test(line) && !ipRe.test(line) && !domainRe.test(line)) {
+            return "Invalid scope entry: \"" + line + "\". Use URLs (http://...), IPs, CIDRs, or domains.";
+        }
+    }
+    return null; // valid
+}
+
 function startMission() {
     const scope = document.getElementById("scope-input").value.trim();
-    if (!scope) {
-        addTerminalLine("Please enter a target scope first.", "error");
-        toast("Enter a target scope before launching", "error", 3000);
+    const validationError = _validateScope(scope);
+    if (validationError) {
+        addTerminalLine(validationError, "error");
+        toast(validationError, "error", 3000);
         document.getElementById("scope-input").focus();
         return;
     }
@@ -856,8 +875,12 @@ function escapeHtml(text) {
 document.addEventListener("DOMContentLoaded", () => {
     // CDN fallback check — Socket.IO
     if (typeof io === 'undefined') {
-        document.querySelector('.main-area').innerHTML =
-            '<div class="empty-state">Socket.IO failed to load. Check your network or CDN access.</div>';
+        const mainEl = document.getElementById("main-content") || document.querySelector("main");
+        if (mainEl) {
+            mainEl.innerHTML =
+                '<div class="empty-state" style="padding:40px;font-size:14px;">Socket.IO failed to load. ' +
+                'Check your network connection or CDN access.</div>';
+        }
         return;
     }
 

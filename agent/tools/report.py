@@ -4,6 +4,7 @@ import html
 import subprocess
 import logging
 from datetime import datetime
+from pathlib import Path
 from .logs_helper import log_path
 
 logger = logging.getLogger(__name__)
@@ -14,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 def _get_version() -> str:
+    """Read version from the VERSION file at the project root (avoids circular imports)."""
     try:
-        from agent.main import VERSION
-
-        return VERSION
+        version_file = Path(__file__).parent.parent.parent / "VERSION"
+        return version_file.read_text(encoding="utf-8").strip()
     except Exception:
         return "unknown"
 

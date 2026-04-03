@@ -18,6 +18,13 @@ from flask import Flask, render_template, jsonify, request, send_file, make_resp
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LOGS_DIR = PROJECT_ROOT / "logs"
 
+# Read VERSION from the VERSION file at the project root
+try:
+    _VERSION_FILE = PROJECT_ROOT / "VERSION"
+    DASHBOARD_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip()
+except Exception:
+    DASHBOARD_VERSION = "unknown"
+
 # Fix #2: Move sys.path.insert to module level (out of run_mission thread)
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -285,7 +292,7 @@ def health():
     return jsonify({
         "status": "ok",
         "mission_running": running,
-        "version": "2.0.0",
+        "version": DASHBOARD_VERSION,
     })
 
 

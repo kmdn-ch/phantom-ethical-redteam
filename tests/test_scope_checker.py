@@ -118,7 +118,7 @@ class TestIsInScope:
         assert is_in_scope("10.0.1.1", f) is False
 
     def test_empty_scope_denies_by_default(self, scope_file):
-        # Empty scope file = no authorized targets; deny-by-default is the safe choice
+        # Security: empty scope file means no targets are authorized — deny by default.
         f = scope_file("")
         assert is_in_scope("anything.com", f) is False
 

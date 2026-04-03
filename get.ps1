@@ -38,10 +38,14 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 $python = $null
 foreach ($cmd in @("python", "python3", "py")) {
     if (Get-Command $cmd -ErrorAction SilentlyContinue) {
-        $ver = & $cmd --version 2>&1
-        if ($ver -match "Python 3\.(\d+)" -and [int]$Matches[1] -ge 11) {
-            $python = $cmd
-            break
+        try {
+            $ver = & $cmd --version 2>&1
+            if ($ver -match "Python 3\.(\d+)" -and [int]$Matches[1] -ge 11) {
+                $python = $cmd
+                break
+            }
+        } catch {
+            # Windows Store stub or other error -- try next candidate
         }
     }
 }

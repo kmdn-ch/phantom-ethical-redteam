@@ -1,4 +1,4 @@
-/* Phantom Dark Theme — Dashboard v3 */
+/* Phantom Dark Theme — Dashboard v3.1 */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
@@ -26,16 +26,29 @@
     --shadow-lg: 0 4px 12px rgba(0,0,0,0.5);
     --radius: 6px;
     --transition: 0.15s ease;
+    /* Dual-font system: UI uses system sans-serif, terminals use monospace */
+    --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
 }
 
 body {
     background: var(--bg-primary);
     color: var(--text-primary);
-    font-family: 'Courier New', monospace;
+    /* Use system sans-serif for the shell/UI chrome — monospace only in terminals */
+    font-family: var(--font-ui);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Terminal and code areas keep monospace */
+.terminal-body,
+.terminal-line,
+.summary-text,
+code, pre, kbd {
+    font-family: var(--font-mono);
 }
 
 /* Skip-to-content for accessibility */
@@ -732,4 +745,78 @@ footer {
     .tab { flex-shrink: 0; }
     .terminal-body { max-height: 300px; }
     .summary-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Accessibility: respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Improved global focus ring — visible on keyboard navigation only */
+:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+}
+
+/* Improved header visual hierarchy */
+header h1 {
+    font-family: var(--font-mono);
+}
+
+/* Sidebar section headings use UI font, not monospace */
+.sidebar-left h2,
+.sidebar-right h2,
+.sidebar-subtitle,
+.chart-card h3,
+.table-section h3,
+.timeline h3,
+.summary-chart-card h3 {
+    font-family: var(--font-ui);
+    letter-spacing: 0.05em;
+}
+
+/* Status badge improved contrast — ensure accessible color ratios */
+.status {
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
+/* Severity badges in the sidebar: show count prominently */
+.finding-badge {
+    font-family: var(--font-ui);
+    letter-spacing: 0.02em;
+}
+
+/* Export row alignment */
+.export-row {
+    margin-top: 4px;
+}
+
+/* Scrollbar styling for Webkit — apply to all scrollable areas */
+.sidebar-left::-webkit-scrollbar,
+.sidebar-right::-webkit-scrollbar,
+.table-wrapper::-webkit-scrollbar,
+.summary-panel::-webkit-scrollbar {
+    width: 5px;
+}
+.sidebar-left::-webkit-scrollbar-track,
+.sidebar-right::-webkit-scrollbar-track,
+.table-wrapper::-webkit-scrollbar-track,
+.summary-panel::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+.sidebar-left::-webkit-scrollbar-thumb,
+.sidebar-right::-webkit-scrollbar-thumb,
+.table-wrapper::-webkit-scrollbar-thumb,
+.summary-panel::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+.sidebar-left::-webkit-scrollbar-thumb:hover,
+.sidebar-right::-webkit-scrollbar-thumb:hover {
+    background: var(--border-hover);
 }

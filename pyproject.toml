@@ -3,6 +3,18 @@ name = "phantom-ethical-redteam"
 version = "3.2.2"
 description = "Autonomous ethical red team agent with multi-LLM support"
 requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40.0",
+    "openai>=1.50.0",
+    "google-genai>=1.0.0",
+    "ollama>=0.3.0",
+    "mistralai>=1.0.0",
+    "PyYAML>=6.0",
+    "requests>=2.31.0",
+    "flask>=3.0.0",
+    "flask-cors>=4.0.0",
+    "flask-socketio>=5.3.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
